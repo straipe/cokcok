@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Swing List</title>
+  </head>
+  <body>
+    <h1>Swing List</h1>
+
+    {% for swing in swings %}
+    <div>
+      <video width="320" height="240" controls>
+        <source src="{{ swing.video_file.url }}" type="video/mp4" />
+      </video>
+    </div>
+    {% empty %}
+    <p>No swings available.</p>
+    {% endfor %}
+
+    <a href="{% url 'upload_swing' %}">Upload a new swing</a>
+  </body>
+</html>

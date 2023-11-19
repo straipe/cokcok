@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import Video
+from .models import Swing_Upload
 
-@admin.register(Video)
-class VideoAdmin(admin.ModelAdmin):
+@admin.register(Swing_Upload)
+class SwingAdmin(admin.ModelAdmin):
     pass
