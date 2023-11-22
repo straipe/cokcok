@@ -1,6 +1,6 @@
 from django.db import models
 
-class Swing_Upload(models.Model):
+class Motion_Upload(models.Model):
     video_file = models.FileField(upload_to='videos/',blank=True)
     motion_file = models.FileField(upload_to='motions/',blank=True)
 

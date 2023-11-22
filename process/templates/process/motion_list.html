@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Motion List</title>
+  </head>
+  <body>
+    <h1>Motion List</h1>
+
+    {% for motion in motions %}
+    <div>
+      <video width="320" height="240" controls>
+        <source src="{{ motion.video_file.url }}" type="video/mp4" />
+      </video>
+    </div>
+    {% empty %}
+    <p>No motions available.</p>
+    {% endfor %}
+
+    <a href="{% url 'upload_motion' %}">Upload a new motion</a>
+  </body>
+</html>

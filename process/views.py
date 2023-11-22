@@ -1,30 +1,59 @@
 from django.shortcuts import render, redirect
-from .forms import SwingUploadForm
-from .models import Swing_Upload
+from django.http import Http404
+from .forms import MotionUploadForm
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Motion_Upload, Motion, CodeDetail
 from .movenet import process_video
+from .serializers import MotionSerializer, CodeDetailSerializer
 from storages.backends.s3boto3 import S3Boto3Storage
+
+class UserMotionList(APIView):
+    def get_object(self, pk):
+        try:
+            return Motion.objects.raw(
+                f"select * from MOTION WHERE user_id={pk};"
+            )
+        except Motion.DoesNotExist:
+            raise Http404
+    
+    def get(self, request, pk, format=None):
+        motions = self.get_object(pk)
+        serializer = MotionSerializer(motions,many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, pk):
+        print(request.data)
+
+class CodeAllList(APIView):
+    def get(self, request):
+        codes=CodeDetail.objects.raw(
+                "SELECT * FROM CODE_DETAIL;"
+            )
+        serializer = CodeDetailSerializer(codes,many=True)
+        return Response(serializer.data)
 
 def get_s3_file_url(file):
     if isinstance(file.storage, S3Boto3Storage):
         return file.storage.url(file.name)
     return None
 
-def upload_swing(request):
+def upload_motion(request):
     if request.method == 'POST':
-        form = SwingUploadForm(request.POST, request.FILES)
+        form = MotionUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            swing = form.save()
-            file_url = get_s3_file_url(swing.video_file)
+            motion = form.save()
+            file_url = get_s3_file_url(motion.video_file)
             print(process_video(file_url))
-            return redirect("upload_swing")
+            return redirect("upload_motion")
     else:
-        form = SwingUploadForm()
-    return render(request,'process/upload_swing.html',{'form':form})
+        form = MotionUploadForm()
+    return render(request,'process/upload_motion.html',{'form':form})
 
-def get_swing_list(request):
+def get_motion_list(request):
     pass
 
-def swing_list(request):
+def motion_list(request):
     pass
     # swings = Swing_Upload.objects.all()
     # return render(request, 'process/swing_list.html',{'swings':swings})

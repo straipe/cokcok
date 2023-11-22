@@ -1,7 +1,7 @@
 from django import forms
-from .models import Swing_Upload
+from .models import Motion_Upload
 
-class SwingUploadForm(forms.ModelForm):
+class MotionUploadForm(forms.ModelForm):
     class Meta:
-        model = Swing_Upload
+        model = Motion_Upload
         fields = ['video_file','motion_file']

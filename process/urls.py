@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('upload/swing/', views.upload_swing, name='upload_swing'),
-    path('swing_list/',views.swing_list, name='swing_list'),
+    path('upload/motion/', views.upload_motion, name='upload_motion'),
+    path('motion/user/<int:pk>',views.UserMotionList.as_view()),
+    path('codelist/', views.CodeAllList.as_view()),
 ]
