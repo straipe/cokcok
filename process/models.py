@@ -5,17 +5,11 @@ class Motion_Upload(models.Model):
     motion_file = models.FileField(upload_to='motions/',blank=True)
 
 class User(models.Model):
-    user_id = models.CharField(primary_key=True, max_length=36, db_comment='유저 아이디')
+    user_id = models.AutoField(primary_key=True)
     sex = models.CharField(max_length=1, db_comment='성별')
     years_playing = models.IntegerField(db_comment='구력')
     grade = models.CharField(max_length=10, db_comment='급수')
     handedness = models.CharField(max_length=5, db_comment='주로 쓰는 손')
-    swing_cnt = models.IntegerField(db_comment='이번달 스윙 횟수')
-    swing_grade = models.CharField(max_length=7, db_comment='이번달 스윙 등급')
-    match_cnt = models.IntegerField(db_comment='이번달 경기 횟수')
-    match_cnt_grade = models.CharField(max_length=7, db_comment='이번달 경기 횟수 등급')
-    match_time = models.IntegerField(db_comment='이번달 경기 시간')
-    match_time_grade = models.CharField(max_length=7, db_comment='이번달 경기 시간 등급')
 
     class Meta:
         managed = False
@@ -30,7 +24,7 @@ class Motion(models.Model):
     wrist_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 장점')
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
     wrist_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 단점')
-    user = models.ForeignKey(User, models.DO_NOTHING, db_comment='유저 아이디')
+    user = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
     record_date = models.DateField(db_comment='측정 날짜')
     swing_score = models.IntegerField(db_comment='스윙 총점')
 
@@ -57,28 +51,40 @@ class MatchRecord(models.Model):
     backhand_underarm = models.IntegerField(blank=True, null=True, db_comment='bu 횟수')
     forehand_smash = models.IntegerField(blank=True, null=True, db_comment='fs 횟수')
     watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 데이터 URL')
-    user = models.ForeignKey(User, models.DO_NOTHING, db_comment='유저 아이디')
+    user = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'MATCH_RECORD'
 
 
-class CodeDivision(models.Model):
-    code_no = models.CharField(primary_key=True, max_length=5, db_comment='코드 번호')
-    code_nm = models.CharField(max_length=50, db_comment='코드 이름')
+class Achievement(models.Model):
+    achieve_id = models.AutoField(primary_key=True, db_comment='업적 아이디')
+    achieve_nm = models.CharField(max_length=50, db_comment='업적 이름')
+    d_min = models.IntegerField(db_comment='D등급 최솟값')
+    c_min = models.IntegerField(db_comment='C등급 최솟값')
+    b_min = models.IntegerField(db_comment='B등급 최솟값')
+    a_min = models.IntegerField(db_comment='A등급 최솟값')
+    s_min = models.IntegerField(db_comment='S등급 최솟값')
+    is_month_update = models.CharField(max_length=1, db_comment='매월갱신여부')
 
     class Meta:
         managed = False
-        db_table = 'CODE_DIVISION'
+        db_table = 'ACHIEVEMENT'
 
 
-class CodeDetail(models.Model):
-    detail_code_no = models.CharField(primary_key=True, max_length=7, db_comment='상세 코드 번호')
-    detail_code_nm = models.CharField(max_length=50, db_comment='상세 코드 이름')
-    minimum = models.IntegerField(blank=True, null=True, db_comment='최솟값')
-    code_no = models.ForeignKey(CodeDivision, models.DO_NOTHING, db_column='code_no', db_comment='코드 번호')
+class UserAchievement(models.Model):
+    relation_id = models.AutoField(primary_key=True, db_comment='관계 아이디')
+    user = models.ForeignKey(User, models.DO_NOTHING, db_comment='유저 아이디')
+    achieve = models.ForeignKey(Achievement, models.DO_NOTHING, db_comment='업적 아이디')
+    cumulative_val = models.IntegerField(blank=True, null=True, db_comment='누적치')
+    achieve_year_month = models.DateField(blank=True, null=True, db_comment='업적년월')
+    d_achieve_date = models.DateField(blank=True, null=True, db_comment='D등급 달성일자')
+    c_achieve_date = models.DateField(blank=True, null=True, db_comment='C등급 달성일자')
+    b_achieve_date = models.DateField(blank=True, null=True, db_comment='B등급 달성일자')
+    a_achieve_date = models.DateField(blank=True, null=True, db_comment='A등급 달성일자')
+    s_achieve_date = models.DateField(blank=True, null=True, db_comment='S등급 달성일자')
 
     class Meta:
         managed = False
-        db_table = 'CODE_DETAIL'
+        db_table = 'USER_ACHIEVEMENT'

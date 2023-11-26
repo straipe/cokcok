@@ -3,9 +3,9 @@ from django.http import Http404
 from .forms import MotionUploadForm
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Motion_Upload, Motion, CodeDetail
+from .models import Motion_Upload, Motion
 from .movenet import process_video
-from .serializers import MotionSerializer, CodeDetailSerializer
+from .serializers import MotionSerializer
 from storages.backends.s3boto3 import S3Boto3Storage
 
 class UserMotionList(APIView):
@@ -24,14 +24,6 @@ class UserMotionList(APIView):
     
     def post(self, request, pk):
         print(request.data)
-
-class CodeAllList(APIView):
-    def get(self, request):
-        codes=CodeDetail.objects.raw(
-                "SELECT * FROM CODE_DETAIL;"
-            )
-        serializer = CodeDetailSerializer(codes,many=True)
-        return Response(serializer.data)
 
 def get_s3_file_url(file):
     if isinstance(file.storage, S3Boto3Storage):

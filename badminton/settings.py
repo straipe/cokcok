@@ -1,15 +1,22 @@
+from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
-import os
+import os, json
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+secret_file = os.path.join(BASE_DIR,'secrets.json')
+with open(secret_file,'r') as f:
+    secrets = json.loads(f.read())
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
+def get_secret(setting, secrets=secrets):
+    try:
+        return secrets[setting]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-c44e$zv92(qt*mt!pcr5u4k4#mhz)fjplej%2*0t)q6plk+)-*'
+SECRET_KEY = get_secret("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -115,8 +122,8 @@ USE_TZ = True
 
 # S3를 위한 설정
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-AWS_ACCESS_KEY_ID = 'AKIAQTRSLC4FAURLA445'
-AWS_SECRET_ACCESS_KEY = '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'
+AWS_ACCESS_KEY_ID = get_secret("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = get_secret("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = 'cokcok'
 AWS_S3_REGION_NAME = 'ap-northeast-2'  # ex: 'us-west-1'
 AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
