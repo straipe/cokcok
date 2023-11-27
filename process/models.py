@@ -1,30 +1,14 @@
 from django.db import models
 
-class Motion_Upload(models.Model):
-    video_file = models.FileField(upload_to='videos/',blank=True)
-    motion_file = models.FileField(upload_to='motions/',blank=True)
-
-class User(models.Model):
-    user_id = models.AutoField(primary_key=True)
-    sex = models.CharField(max_length=1, db_comment='성별')
-    years_playing = models.IntegerField(db_comment='구력')
-    grade = models.CharField(max_length=10, db_comment='급수')
-    handedness = models.CharField(max_length=5, db_comment='주로 쓰는 손')
-
-    class Meta:
-        managed = False
-        db_table = 'USER'
-
-
 class Motion(models.Model):
     motion_id = models.AutoField(primary_key=True, db_comment='데이터 아이디')
-    video_url = models.CharField(max_length=200, blank=True, null=True, db_comment='영상 데이터 URL')
-    watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 데이터 URL')
+    video_url = models.FileField(upload_to='videos/',blank=True)
+    watch_url = models.FileField(upload_to='motions/',blank=True)
     pose_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 장점')
     wrist_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 장점')
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
     wrist_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 단점')
-    user = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
+    user = models.IntegerField()
     record_date = models.DateField(db_comment='측정 날짜')
     swing_score = models.IntegerField(db_comment='스윙 총점')
 
@@ -51,7 +35,7 @@ class MatchRecord(models.Model):
     backhand_underarm = models.IntegerField(blank=True, null=True, db_comment='bu 횟수')
     forehand_smash = models.IntegerField(blank=True, null=True, db_comment='fs 횟수')
     watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 데이터 URL')
-    user = models.ForeignKey(User, models.DO_NOTHING, blank=True, null=True)
+    user = models.IntegerField()
 
     class Meta:
         managed = False
@@ -75,7 +59,7 @@ class Achievement(models.Model):
 
 class UserAchievement(models.Model):
     relation_id = models.AutoField(primary_key=True, db_comment='관계 아이디')
-    user = models.ForeignKey(User, models.DO_NOTHING, db_comment='유저 아이디')
+    user = models.IntegerField(db_comment='유저 아이디')
     achieve = models.ForeignKey(Achievement, models.DO_NOTHING, db_comment='업적 아이디')
     cumulative_val = models.IntegerField(blank=True, null=True, db_comment='누적치')
     achieve_year_month = models.DateField(blank=True, null=True, db_comment='업적년월')

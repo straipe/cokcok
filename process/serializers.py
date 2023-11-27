@@ -1,13 +1,27 @@
 from rest_framework import serializers
-from .models import Motion
+from .models import Achievement, Motion
 
 class MotionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Motion
         fields = [field.name for field in Motion._meta.get_fields()]
 
-class CodeDetailSerializer(serializers.Serializer):
-    detail_code_no = serializers.CharField(min_length=7 ,max_length=7)
-    detail_code_nm=serializers.CharField(max_length=50)
-    minimum = serializers.IntegerField()
-    code_no=serializers.CharField(min_length=5 ,max_length=5)
+class MotionPostSerializer(serializers.ModelSerializer):
+    video_url = serializers.CharField(max_length=200)
+    motion_url = serializers.CharField(max_length=200)
+    pose_strength = serializers.CharField(max_length=100)
+    wrist_strength = serializers.CharField(max_length=100)
+    pose_weakness = serializers.CharField(max_length=100)
+    wrist_weakness = serializers.CharField(max_length=100)
+    user_id = serializers.IntegerField()
+    record_date = serializers.DateTimeField()
+
+class AchievementSerializer(serializers.Serializer):
+        class Meta:
+            model = Achievement
+            fields = [field.name for field in Achievement._meta.get_fields()]
+
+class AchievementNoPKSerializer(serializers.Serializer):
+        class Meta:
+            model = Achievement
+            exclude = ('achieve_id')
