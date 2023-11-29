@@ -21,7 +21,7 @@ class UserMotionList(APIView):
     def get_object(self, pk):
         try:
             return Motion.objects.raw(
-                f"select * from MOTION WHERE user_id={pk};"
+                f"select * from Motion WHERE user_token={pk};"
             )
         except Motion.DoesNotExist:
             raise Http404
@@ -64,15 +64,15 @@ class UserMotionList(APIView):
         except MultiValueDictKeyError:
             error_num = error_num + 1
         if(error_num<2):
-            user_id = request.data.get('user_id')
+            user_token = request.data.get('user_token')
             record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             swing_score = 0
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"INSERT INTO MOTION(video_url, watch_url, pose_strength, wrist_strength,"\
-                    f"pose_weakness, wrist_weakness, user_id, record_date, swing_score) VALUES "\
+                    f"INSERT INTO Motion(video_url, watch_url, pose_strength, wrist_strength,"\
+                    f"pose_weakness, wrist_weakness, user_token, record_date, swing_score) VALUES "\
                     f"({video_url},{watch_url},{pose_strength},{wrist_strength},{pose_weakness},"\
-                    f"{wrist_weakness},{user_id},{record_date},{swing_score});"\
+                    f"{wrist_weakness},{user_token},{record_date},{swing_score});"\
                 )
             response_data = {}
             response_data['video_url'] = video_url
@@ -81,7 +81,7 @@ class UserMotionList(APIView):
             response_data['wrist_strength'] = wrist_strength
             response_data['pose_weakness'] = pose_weakness
             response_data['wrist_weakness'] = wrist_weakness
-            response_data['user_id'] = user_id
+            response_data['user_token'] = user_token
             response_data['record_date'] = record_date
             response_data['swing_score'] = swing_score
 
@@ -93,7 +93,7 @@ class AchievementList(APIView):
     def get_object(self):
         try:
             return Achievement.objects.raw(
-                f"select * from ACHIEVEMENT;"
+                f"select * from Achievement;"
             )
         except Achievement.DoesNotExist:
             raise Http404
@@ -117,7 +117,7 @@ class AchievementList(APIView):
 
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO ACHIEVEMENT(achieve_nm,d_min,c_min,b_min,a_min,s_min,is_month_update) "\
+                    "INSERT INTO Achievement(achieve_nm,d_min,c_min,b_min,a_min,s_min,is_month_update) "\
                         f"VALUES ('{achieve_nm}',{d_min}, "\
                         f"{c_min}, {b_min}, {a_min}, "\
                         f"{s_min}, '{is_month_update}');"
