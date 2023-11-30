@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Achievement, Motion, Player
+from .models import Achievement, Motion
 
 class MotionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,7 +26,3 @@ class AchievementNoPKSerializer(serializers.ModelSerializer):
         model = Achievement
         exclude = ('achieve_id')
 
-class PlayerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Player
-        fields = [field.name for field in Player._meta.get_fields()]
