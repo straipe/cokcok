@@ -1,7 +1,7 @@
 from django.db import models
 
-class User(models.Model):
-    user_token = models.CharField(max_length=50)
+class Player(models.Model):
+    player_token = models.CharField(primary_key=True, max_length=50)
     sex = models.CharField(max_length=1, db_comment='성별')
     years_playing = models.IntegerField(db_comment='구력')
     grade = models.CharField(max_length=10, db_comment='급수')
@@ -10,7 +10,7 @@ class User(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'User'
+        db_table = 'Player'
 
 class Motion(models.Model):
     motion_id = models.AutoField(primary_key=True, db_comment='데이터 아이디')
@@ -20,7 +20,7 @@ class Motion(models.Model):
     wrist_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 장점')
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
     wrist_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 단점')
-    user_token = models.CharField(max_length=50)
+    player_token = models.CharField(max_length=50)
     record_date = models.DateField(db_comment='측정 날짜')
     swing_score = models.IntegerField(db_comment='스윙 총점')
 
@@ -47,7 +47,7 @@ class MatchRecord(models.Model):
     backhand_underarm = models.IntegerField(blank=True, null=True, db_comment='bu 횟수')
     forehand_smash = models.IntegerField(blank=True, null=True, db_comment='fs 횟수')
     watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 데이터 URL')
-    user_token = models.CharField(max_length=50)
+    player_token = models.CharField(max_length=50)
 
     class Meta:
         managed = False
@@ -70,10 +70,10 @@ class Achievement(models.Model):
         db_table = 'Achievement'
 
 
-class UserAchievement(models.Model):
+class PlayerAchievement(models.Model):
     relation_id = models.AutoField(primary_key=True, db_comment='관계 아이디')
-    user_token = models.CharField(max_length=50)
-    achieve = models.ForeignKey(Achievement, models.DO_NOTHING, db_comment='업적 아이디')
+    player_token = models.CharField(max_length=50)
+    achieve = models.IntegerField(db_comment='업적 아이디')
     cumulative_val = models.IntegerField(blank=True, null=True, db_comment='누적치')
     achieve_year_month = models.DateField(blank=True, null=True, db_comment='업적년월')
     d_achieve_date = models.DateField(blank=True, null=True, db_comment='D등급 달성일자')
@@ -85,4 +85,4 @@ class UserAchievement(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'User_Achievement'
+        db_table = 'Player_Achievement'

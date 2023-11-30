@@ -8,52 +8,124 @@ from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Motion, Achievement
+from .models import Achievement, Motion, Player
 from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     AchievementNoPKSerializer,
     MotionSerializer,
+    PlayerSerializer,
 )
 from storages.backends.s3boto3 import S3Boto3Storage
 
-class UserMotionList(APIView):
+class PlayerInfo(APIView):
+
+    def get_object(self, pk):
+        try:
+            return Player.objects.raw(
+                    f"select * from Player WHERE player_token='{pk}';"
+                )
+        except Player.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, pk, format=None):
+        player_info = self.get_object(pk)
+        serializer = PlayerSerializer(player_info,many=True)
+        return Response(serializer.data)
+        
+    def post(self, request, pk):
+        serializer=PlayerSerializer(data=request.data)
+        if serializer.is_valid():
+            player_token = pk
+            sex = request.data.get('sex')
+            years_playing = request.data.get('years_playing')
+            grade  = request.data.get('grade')
+            handedness = request.data.get('handedness')
+            email  = request.data.get('email')
+            with connection.cursor() as cursor:
+                cursor.execute(
+                        f"INSERT INTO Player values('{player_token}','{sex}','{years_playing}',"\
+                        f"'{grade}','{handedness}','{email}');"
+                )
+            return Response(serializer.data,status=status.HTTP_201_CREATED)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request, pk, format=None):
+        serializer = PlayerSerializer(data=request.data)
+        if serializer.is_valid():
+            player_token = pk
+            sex = request.data.get('sex')
+            years_playing = request.data.get('years_playing')
+            grade  = request.data.get('grade')
+            handedness = request.data.get('handedness')
+            email  = request.data.get('email')
+            with connection.cursor() as cursor:
+                cursor.execute(
+                        f"UPDATE Player SET sex='{sex}',years_playing={years_playing},"\
+                        f"grade='{grade}',handedness='{handedness}',email='{email}' "\
+                        f"WHERE player_token = '{player_token}';"
+                )
+            return Response(serializer.data)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self,request,pk,format=None):
+        with connection.cursor() as cursor:
+                cursor.execute(
+                   f"DELETE FROM Player WHERE player_token='{pk}';"
+                )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class PlayerMotionList(APIView):
     def get_object(self, pk):
         try:
             return Motion.objects.raw(
-                f"select * from Motion WHERE user_token={pk};"
+                f"select * from Motion WHERE player_token='{pk}';"
             )
         except Motion.DoesNotExist:
-            raise Http404
+            return Response(status=status.HTTP_400_BAD_REQUEST)
     
     def get(self, request, pk, format=None):
-        motions = self.get_object(pk)
-        serializer = MotionSerializer(motions,many=True)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        error_num = 0
         try:
+            Player.objects.raw(
+                f"select * from Player WHERE player_token='{pk}';"
+            )
+            motions = self.get_object(pk)
+            serializer = MotionSerializer(motions,many=True)
+            return Response(serializer.data)
+        except Player.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request, pk):
+        error_num = 0
+        video_url =""
+        watch_url =""
+        try:
+            Player.objects.raw(
+                f"select * from Player WHERE player_token='{pk}';"
+            )
             upload_video = request.FILES['video_file']
             video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
             video_url = default_storage.url(video_path)
-            user_pose = process_video(video_url)
+            player_pose = process_video(video_url)
             pose_strength = ""
             pose_weakness = ""
-            if(user_pose[0]<=0.37):
+            if(player_pose[0]<=0.37):
                 pose_weakness += "상체 회전이 부족합니다.\n"
-            if(user_pose[0]>0.37):
+            if(player_pose[0]>0.37):
                 pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
-            if(user_pose[1]<160):
+            if(player_pose[1]<160):
                 pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
-            if(user_pose[1]>=160):
+            if(player_pose[1]>=160):
                 pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
-            if(user_pose[2]<160):
+            if(player_pose[2]<160):
                 pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
-            if(user_pose[2]>=160):
+            if(player_pose[2]>=160):
                 pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
         except MultiValueDictKeyError:
             error_num = error_num + 1
+        except Player.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             upload_watch = request.FILES['watch_file']
             watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
@@ -64,15 +136,15 @@ class UserMotionList(APIView):
         except MultiValueDictKeyError:
             error_num = error_num + 1
         if(error_num<2):
-            user_token = request.data.get('user_token')
+            player_token = request.data.get('player_token')
             record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             swing_score = 0
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Motion(video_url, watch_url, pose_strength, wrist_strength,"\
-                    f"pose_weakness, wrist_weakness, user_token, record_date, swing_score) VALUES "\
-                    f"({video_url},{watch_url},{pose_strength},{wrist_strength},{pose_weakness},"\
-                    f"{wrist_weakness},{user_token},{record_date},{swing_score});"\
+                    f"pose_weakness, wrist_weakness, player_token, record_date, swing_score) VALUES "\
+                    f"('{video_url}','{watch_url}','{pose_strength}','{wrist_strength}','{pose_weakness}',"\
+                    f"'{wrist_weakness}','{player_token}',{record_date},{swing_score});"\
                 )
             response_data = {}
             response_data['video_url'] = video_url
@@ -81,7 +153,7 @@ class UserMotionList(APIView):
             response_data['wrist_strength'] = wrist_strength
             response_data['pose_weakness'] = pose_weakness
             response_data['wrist_weakness'] = wrist_weakness
-            response_data['user_token'] = user_token
+            response_data['player_token'] = player_token
             response_data['record_date'] = record_date
             response_data['swing_score'] = swing_score
 
@@ -96,7 +168,7 @@ class AchievementList(APIView):
                 f"select * from Achievement;"
             )
         except Achievement.DoesNotExist:
-            raise Http404
+            return Response(status=status.HTTP_400_BAD_REQUEST)
     
     def get(self, request, format=None):
         achievements = self.get_object()
