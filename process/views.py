@@ -1,15 +1,17 @@
+import contextlib
 import datetime
+from accounts.models import Player
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.db import connection, transaction
 from django.shortcuts import render, redirect
 from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
 from .models import Achievement, Motion
-from accounts.models import Player
 from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
@@ -18,23 +20,16 @@ from .serializers import (
 )
 from storages.backends.s3boto3 import S3Boto3Storage
 
-class PlayerMotionList(APIView):
-    def get_object(self, pk):
-        try:
-            return Motion.objects.raw(
-                f"select * from Motion WHERE player_token='{pk}';"
-            )
-        except Motion.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-    
+class PlayerMotionList(APIView,LimitOffsetPagination):
     def get(self, request, pk, format=None):
         try:
             Player.objects.raw(
                 f"select * from Player WHERE player_token='{pk}';"
             )
-            motions = self.get_object(pk)
-            serializer = MotionSerializer(motions,many=True)
-            return Response(serializer.data)
+            motions = Motion.objects.filter(player_token=pk)
+            motions_paginated = self.paginate_queryset(motions,request)
+            serializer = MotionSerializer(motions_paginated, many=True)
+            return self.get_paginated_response(serializer.data)
         except Player.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
     
@@ -103,18 +98,68 @@ class PlayerMotionList(APIView):
             return Response(response_data,status=status.HTTP_201_CREATED)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+    def delete(self, request, pk, format=None):
+        try:
+            Player.objects.raw(
+                f"select * from Player WHERE player_token='{pk}';"
+            )
+            player_token = pk
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"delete from Motion where player_token='{player_token}';"
+                )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        except Player.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+    def get_limit(self, request):
+        if self.limit_query_param:
+            with contextlib.suppress(KeyError, ValueError):
+                return _positive_int(
+                    request.query_params[self.limit_query_param],
+                    strict=True,
+                    cutoff=self.max_limit
+                )
+        return 10
+
+    def get_offset(self, request):
+        try:
+            return _positive_int(
+                request.query_params[self.offset_query_param],
+            )
+        except (KeyError, ValueError):
+            return 0
+
+    def get_paginated_response(self, data):
+        return Response({
+            'next': self.get_next_link(),
+            'results': data
+        })
+    
+class PlayerMotionDetail(APIView):
+    def delete(self, request, pk1, pk2, format=None):
+        player_token = pk1
+        motion_id = pk2
+        try:
+            Player.objects.raw(
+                f"select * from Player WHERE player_token='{player_token}';"
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"delete from Motion where player_token='{player_token}' "\
+                    f"and motion_id={motion_id};"
+                )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        except Player.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
 
 class AchievementList(APIView):
-    def get_object(self):
-        try:
-            return Achievement.objects.raw(
-                f"select * from Achievement;"
-            )
-        except Achievement.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-    
     def get(self, request, format=None):
-        achievements = self.get_object()
+        achievements = Achievement.objects.all()
         serializer = AchievementSerializer(achievements,many=True)
         return Response(serializer.data)
     
@@ -139,3 +184,14 @@ class AchievementList(APIView):
                 )
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+def _positive_int(integer_string, strict=False, cutoff=None):
+    """
+    Cast a string to a strictly positive integer.
+    """
+    ret = int(integer_string)
+    if ret < 0 or (ret == 0 and strict):
+        raise ValueError()
+    if cutoff:
+        return min(ret, cutoff)
+    return ret
