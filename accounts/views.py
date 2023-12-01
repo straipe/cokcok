@@ -1,3 +1,4 @@
+import datetime
 from django.db import connection, transaction
 from django.shortcuts import render
 from rest_framework import status
@@ -36,6 +37,31 @@ class PlayerInfo(APIView):
                         f"INSERT INTO Player values('{player_token}','{sex}','{years_playing}',"\
                         f"'{grade}','{handedness}','{email}');"
                 )
+
+                # 상시 업적 조회 및 유저와 상시 업적 간 관계 튜플 추가
+                cursor.execute(
+                    f"SELECT achieve_id from Achievement where is_month_update=0;"
+                )
+                always_achieve = cursor.fetchall()
+                for i in range(len(always_achieve)):
+                    cursor.execute(
+                        f"INSERT INTO Player_Achievement(player_token,achieve_id) "\
+                        f"values ('{player_token}',{always_achieve[i][0]});"
+                    )
+                
+                # 월별 업적 조회 및 유저와 월별 업적 간 관계 튜플 추가
+                now = datetime.datetime.now().strftime("%Y-%m-01")
+                cursor.execute(
+                    f"SELECT achieve_id from Achievement where is_month_update=1;"
+                )
+                month_achieve = cursor.fetchall()
+                for i in range(len(month_achieve)):
+                    cursor.execute(
+                        f"INSERT INTO Player_Achievement(player_token,achieve_id,achieve_year_month) "\
+                        f"values ('{player_token}',{month_achieve[i][0]},'{now}');"
+                    )
+
+
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
     
