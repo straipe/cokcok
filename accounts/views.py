@@ -1,32 +1,28 @@
 import datetime
 from django.db import connection, transaction
+from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
 from .models import Player
 from .serializers import PlayerSerializer
 
 class PlayerInfo(APIView):
 
-    def get_object(self, pk):
-        try:
-            return Player.objects.raw(
-                    f"select * from Player WHERE player_token='{pk}';"
-                )
-        except Player.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request, pk, format=None):
-        player_info = self.get_object(pk)
-        serializer = PlayerSerializer(player_info,many=True)
-        return Response(serializer.data)
+    def get(self, request, format=None):
+        token = request.query_params['token']
+        player = Player.objects.filter(player_token = token)
+        if player is None:
+            serializer = PlayerSerializer(player,many=True)
+            return Response(serializer.data)
+        else:
+            return JsonResponse({"message":"회원가입을 해주세요."})
         
-    def post(self, request, pk):
+    def post(self, request):
         serializer=PlayerSerializer(data=request.data)
         if serializer.is_valid():
-            player_token = pk
+            player_token = request.query_params['token']
             sex = request.data.get('sex')
             years_playing = request.data.get('years_playing')
             grade  = request.data.get('grade')
@@ -61,14 +57,14 @@ class PlayerInfo(APIView):
                         f"values ('{player_token}',{month_achieve[i][0]},'{now}');"
                     )
 
-
-            return Response(serializer.data,status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"message":"회원가입이 완료되었습니다."})
+        return JsonResponse({"message":"올바르지 않은 형식입니다."}, status = 400)
     
-    def put(self, request, pk, format=None):
+    def put(self, request, format=None):
+        token = request.query_params['token']
         serializer = PlayerSerializer(data=request.data)
         if serializer.is_valid():
-            player_token = pk
+            player_token = token
             sex = request.data.get('sex')
             years_playing = request.data.get('years_playing')
             grade  = request.data.get('grade')
@@ -80,12 +76,16 @@ class PlayerInfo(APIView):
                         f"grade='{grade}',handedness='{handedness}',email='{email}' "\
                         f"WHERE player_token = '{player_token}';"
                 )
-            return Response(serializer.data)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"message":"개인정보 수정이 완료되었습니다."})
+        return JsonResponse({"message":"올바르지 않은 형식입니다."}, status = 400)
     
-    def delete(self,request,pk,format=None):
-        with connection.cursor() as cursor:
-                cursor.execute(
-                   f"DELETE FROM Player WHERE player_token='{pk}';"
-                )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self,request,format=None):
+        token = request.query_params['token']
+        player = Player.objects.filter(player_token = token)
+        if player is not None:
+            with connection.cursor() as cursor:
+                    cursor.execute(
+                    f"DELETE FROM Player WHERE player_token='{token}';"
+                    )
+            return JsonResponse({"message":"회원탈퇴 되었습니다."})
+        return JsonResponse({"message":"회원가입을 해주세요."})
