@@ -8,9 +8,31 @@ import numpy as np
 import exception as ex
 import utils as u
 from constant import CONST
+import analysis
 
 
 class SwingClassification:
+    """
+    경기 데이터로부터 스윙 분류 class
+
+    analysis의 SwingAnalysis class,
+    constant, exception, util 모듈,
+    feature.txt, knn_model.joblib 파일에 의존성을 갖는다
+
+    field:
+    file_path (String): 분석 대상 data의 경로. class 생성자로 배정된다
+    X_y (DataFrame): 분석된 data의 스윙 시작, 끝 index 정보 기록
+    classification_result (String[]): data에서 찾고, 분류된 스윙 종류를 순서대로 기록
+    swing_classification_analysis (SwingAnalysis[]): 찾은 스윙들의 스윙 분석 class들의 리스트
+
+    method:
+    __init__(file_path): 전역변수 file_path 배정
+    preprocess(data) return data: data 전처리
+    findPeak(df, window_size, acc_threshold, rr_threshold, feat_name, feat_threshold, peak_threshold) return res_peaks (int[]): 피크 찾기
+    classification(): 경기 데이터로부터 stroke 추출 및 분류, 전역변수 X_y, classification_result 배정, 함수 preprocess, findpeak를 사용한다
+    makeAnalysisData() return swing_classification_analysis: 스윙 분류 결과로부터 각 스윙 분석, 함수 classification에 후행한다
+    """
+    
     def __init__(self, file_path):
         self.file_path = file_path
 
@@ -144,26 +166,29 @@ class SwingClassification:
         data = u.openStorageCSVFile(self.file_path)
 
         preproccessed_data = self.preprocess(data)
+        self.data = preproccessed_data
 
         # make feature dataframe
-        X_y = pd.DataFrame(columns=['StartFrame', 'EndFrame'])
+        X_y = pd.DataFrame(columns=[CONST.CLASS_START, CONST.CLASS_END])
 
         peaks = self.findPeak(preproccessed_data, CONST.CLASS_WINDOW_SIZE, CONST.CLASS_ACC_THR, CONST.CLASS_RR_THR, CONST.ACCZ, CONST.CLASS_FEAT_THR, CONST.CLASS_PEAK_THR)
 
         for peak in peaks:
-            d = pd.DataFrame({'StartFrame': [int(peak - CONST.CLASS_WINDOW_SIZE / 2)],
-                              'EndFrame': [int(peak + CONST.CLASS_WINDOW_SIZE / 2)]})
+            d = pd.DataFrame({CONST.CLASS_START: [int(peak - CONST.CLASS_WINDOW_SIZE / 2)],
+                              CONST.CLASS_END: [int(peak + CONST.CLASS_WINDOW_SIZE / 2)]})
             
             X_y = pd.concat([X_y, d], ignore_index=True)
+        
+        self.X_y = X_y
 
         # Add feature which depends only on one sensor, like range
         def add_feature(fname, sensor):
-            v = [fname(preproccessed_data[int(row['StartFrame']):int(row['EndFrame'])], sensor) for index, row in X_y.iterrows()]
+            v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensor) for index, row in X_y.iterrows()]
             X_y[fname.__name__ + str(sensor)] = v
             
         # Add feature which depends on more than one sensors, like magnitude
         def add_feature_mult_sensor(fname, sensors):
-            v = [fname(preproccessed_data[int(row['StartFrame']):int(row['EndFrame'])], sensors) for index, row in X_y.iterrows()]
+            v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensors) for index, row in X_y.iterrows()]
             
             name = "_".join(sensors)
             X_y[fname.__name__ + name] = v
@@ -259,7 +284,6 @@ class SwingClassification:
             add_feature(maxmin_relative_pos_, sensor)
         
         X_y = X_y.dropna()
-        self.X_y = X_y
 
 
         # KNN predict
@@ -274,3 +298,19 @@ class SwingClassification:
         predicted_labels = loaded_knn_model.predict(X_y[features].values)
 
         self.classification_result = predicted_labels
+    
+    def makeAnalysisData(self):
+        res_classes = []
+
+        for i in range(len(self.classification_result)):
+            find = analysis.SwingAnalysis()
+
+            df = self.data.iloc[self.X_y.at[i, CONST.CLASS_START]:self.X_y.at[i, CONST.CLASS_END], :].copy()
+            find.uploadDataFrame(df.reset_index(drop=True))
+            find.analysis(self.classification_result[i])
+
+            res_classes.append(find)
+        
+        self.swing_classification_analysis = res_classes
+
+        return self.swing_classification_analysis

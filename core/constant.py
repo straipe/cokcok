@@ -83,6 +83,18 @@ class _Const(object):
 
     # for Classification
     @constant
+    def CLASS_STROKE():
+        return ['bd', 'bn', 'bh', 'bu', 'fd', 'fp', 'fn', 'fh', 'fs', 'fu', 'ls', 'ss']
+    
+    @constant
+    def CLASS_START():
+        return 'StartFrame'
+    
+    @constant
+    def CLASS_END():
+        return 'EndFrame'
+    
+    @constant
     def CLASS_WINDOW_SIZE():
         return 30
     
