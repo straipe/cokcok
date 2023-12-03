@@ -2,8 +2,8 @@ from django.db import models
 
 class Motion(models.Model):
     motion_id = models.AutoField(primary_key=True, db_comment='데이터 아이디')
-    video_url = models.FileField(upload_to='videos/',blank=True)
-    watch_url = models.FileField(upload_to='motions/',blank=True)
+    video_url = models.CharField(max_length=200, blank=True, null=True, db_comment='영상 storage URL')
+    watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 storage URL')
     pose_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 장점')
     wrist_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 장점')
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
@@ -27,8 +27,7 @@ class MatchRecord(models.Model):
     average_heart_rage = models.FloatField(db_comment='평균심박수')
     my_score = models.IntegerField(db_comment='내점수')
     opponent_score = models.IntegerField(db_comment='상대점수')
-    my_score_history = models.CharField(max_length=100, db_comment='내점수 히스토리')
-    opponent_score_history = models.CharField(max_length=100, db_comment='상대점수 히스토리')
+    score_history = models.CharField(max_length=100, db_comment='히스토리')
     forehand_overarm = models.IntegerField(blank=True, null=True, db_comment='fo 횟수')
     forehand_underarm = models.IntegerField(blank=True, null=True, db_comment='fu 횟수')
     backhand_overarm = models.IntegerField(blank=True, null=True, db_comment='bo 횟수')

@@ -1,28 +1,22 @@
 from rest_framework import serializers
-from .models import Achievement, Motion
-
-class MotionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Motion
-        fields = [field.name for field in Motion._meta.get_fields()]
-
-class MotionPostSerializer(serializers.Serializer):
-    video_url = serializers.CharField(max_length=200)
-    motion_url = serializers.CharField(max_length=200)
-    pose_strength = serializers.CharField(max_length=100)
-    wrist_strength = serializers.CharField(max_length=100)
-    pose_weakness = serializers.CharField(max_length=100)
-    wrist_weakness = serializers.CharField(max_length=100)
-    player_token = serializers.IntegerField()
-    record_date = serializers.DateTimeField()
+from .models import Achievement, MatchRecord, Motion, PlayerAchievement
 
 class AchievementSerializer(serializers.ModelSerializer):
      class Meta:
         model = Achievement
         fields = [field.name for field in Achievement._meta.get_fields()]
 
-class AchievementNoPKSerializer(serializers.ModelSerializer):
+class MatchRecordSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Achievement
-        exclude = ('achieve_id')
+        model = MatchRecord
+        fields = [field.name for field in MatchRecord._meta.get_fields()]
 
+class MotionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Motion
+        fields = [field.name for field in Motion._meta.get_fields()]
+
+class PlayerAchievementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlayerAchievement
+        fields = [field.name for field in PlayerAchievement._meta.get_fields()]
