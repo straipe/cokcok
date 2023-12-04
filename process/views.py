@@ -74,7 +74,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 return JsonResponse(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
-        
+    
+    @transaction.atomic
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
@@ -89,6 +90,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             opponent_score = request.data.get('opponent_score')
             score_history = request.data.get('score_history')
             upload_watch = request.FILES['watch_file']
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            upload_watch.name = now + token
             watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
             watch_url = default_storage.url(watch_path)
             watch_csv = pd.read_csv(upload_watch)
@@ -103,7 +106,6 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             bu = motion_json['bu']
             total_swing = fo+fu+fs+bo+bu
             player_token = token
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Match_Record VALUES (NULL, '{start_date}',"\
@@ -316,6 +318,8 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             watch_url =""
             try:
                 upload_video = request.FILES['video_file']
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                upload_video.name = now + token
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
                 player_pose = process_video(video_url)
@@ -338,6 +342,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             
             try:
                 upload_watch = request.FILES['watch_file']
+                upload_watch.name = now + token
                 watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
                 watch_csv = pd.read_csv(upload_watch)

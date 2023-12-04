@@ -19,6 +19,7 @@ class PlayerInfo(APIView):
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
         
+    @transaction.atomic    
     def post(self, request):
         serializer=PlayerSerializer(data=request.data)
         if serializer.is_valid():
