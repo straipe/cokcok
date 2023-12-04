@@ -7,6 +7,7 @@ class Player(models.Model):
     grade = models.CharField(max_length=10, db_comment='급수')
     handedness = models.CharField(max_length=5, db_comment='주로 쓰는 손')
     email = models.CharField(max_length=100)
+    sns = models.CharField(max_length=30)
 
     class Meta:
         managed = False
