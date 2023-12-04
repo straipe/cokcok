@@ -3,9 +3,8 @@ import math
 import ast
 import csv
 
-import exception as ex
-import utils as u
-from constant import CONST
+from . import exception as ex
+from .constant import CONST
 
 
 class SwingAnalysis:
@@ -22,8 +21,7 @@ class SwingAnalysis:
     res (Int[]): 각 timestamp당 오차 점수 합
 
     method:
-    uploadFile(file_path): file_path로 전역변수 data 업데이트
-    uploadDataFrame(df): df로 전역변수 data 업데이트
+    __init__ (df): 전역변수 data 배정
     cutData(all_data): 데이터프레임 data로부터 피크를 찾아 적절히 스윙 부분 자르기
     normalize(all_data): 데이터프레임 data 정규화
     windowing(all_data, size=CONST.SWING_WINDOW_SIZE): 데이터프레임 data에 windowing 적용
@@ -33,11 +31,36 @@ class SwingAnalysis:
     interpret(self): 스윙 분석 결과로부터 보고서 산출. 전역변수 res를 배정한다. 함수 analysis에 후행한다
     """
 
-    def uploadFile(self, file_path):
-        self.data = u.openStorageCSVFile(file_path)
-    
-    def uploadDataFrame(self, df):
+    def __init__(self, df):
         self.data = df
+    
+    def addFeature(self, all_data):
+        for data in all_data:
+            data['x+y+z'] = data[CONST.ACCX] + data[CONST.ACCY] + data[CONST.ACCZ]
+            data['x+y'] = data[CONST.ACCX] + data[CONST.ACCY]
+            data['y+z'] = data[CONST.ACCY] + data[CONST.ACCZ]
+            data['x+z'] = data[CONST.ACCX] + data[CONST.ACCZ]
+
+            data['x*y*z'] = data[CONST.ACCX] * data[CONST.ACCY] * data[CONST.ACCZ]
+            data['x*y'] = data[CONST.ACCX] * data[CONST.ACCY]
+            data['y*z'] = data[CONST.ACCY] * data[CONST.ACCZ]
+            data['x*z'] = data[CONST.ACCX] * data[CONST.ACCZ]
+
+            data['p+r+w'] = data[CONST.RVP] + data[CONST.RVR] + data[CONST.RVY]
+            data['p+r'] = data[CONST.RVP] + data[CONST.RVR]
+            data['r+w'] = data[CONST.RVR] + data[CONST.RVY]
+            data['p+w'] = data[CONST.RVP] + data[CONST.RVY]
+
+            data['p*r*w'] = data[CONST.RVP] * data[CONST.RVR] * data[CONST.RVY]
+            data['p*r'] = data[CONST.RVP] * data[CONST.RVR]
+            data['r*w'] = data[CONST.RVR] * data[CONST.RVY]
+            data['p*w'] = data[CONST.RVP] * data[CONST.RVY]
+            
+            del data[CONST.PITCH]
+            del data[CONST.ROLL]
+            del data[CONST.YAW]
+
+        return all_data
 
     def cutData(self, all_data):
         return_data = []
@@ -135,7 +158,7 @@ class SwingAnalysis:
 
     def analysis(self, stroke):
         try:
-            added_data = u.addFeature([self.data])
+            added_data = self.addFeature([self.data])
 
             user_data = self.windowing(self.normalize(self.cutData(added_data)))
 

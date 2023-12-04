@@ -5,10 +5,9 @@ import joblib
 import itertools
 import numpy as np
 
-import exception as ex
-import utils as u
-from constant import CONST
-import analysis
+from . import exception as ex
+from .constant import CONST
+from . import analysis
 
 
 class SwingClassification:
@@ -20,21 +19,22 @@ class SwingClassification:
     feature.txt, knn_model.joblib 파일에 의존성을 갖는다
 
     field:
-    file_path (String): 분석 대상 data의 경로. class 생성자로 배정된다
+    data (DataFrame): 분석 대상 data. class 생성자로 배정된다
+    preproccessed_data (DataFrame): 전처리 된 분석 대상 data
     X_y (DataFrame): 분석된 data의 스윙 시작, 끝 index 정보 기록
     classification_result (String[]): data에서 찾고, 분류된 스윙 종류를 순서대로 기록
     swing_classification_analysis (SwingAnalysis[]): 찾은 스윙들의 스윙 분석 class들의 리스트
 
     method:
-    __init__(file_path): 전역변수 file_path 배정
+    __init__(df): 전역변수 data 배정
     preprocess(data) return data: data 전처리
     findPeak(df, window_size, acc_threshold, rr_threshold, feat_name, feat_threshold, peak_threshold) return res_peaks (int[]): 피크 찾기
     classification(): 경기 데이터로부터 stroke 추출 및 분류, 전역변수 X_y, classification_result 배정, 함수 preprocess, findpeak를 사용한다
     makeAnalysisData() return swing_classification_analysis: 스윙 분류 결과로부터 각 스윙 분석, 함수 classification에 후행한다
     """
     
-    def __init__(self, file_path):
-        self.file_path = file_path
+    def __init__(self, df):
+        self.data = df
 
     def preprocess(self, data):
         for r in range(len(data)):
@@ -163,141 +163,143 @@ class SwingClassification:
         return res_peaks
     
     def classification(self):
-        data = u.openStorageCSVFile(self.file_path)
+        try:
+            preproccessed_data = self.preprocess(self.data)
+            self.preproccessed_data = preproccessed_data
 
-        preproccessed_data = self.preprocess(data)
-        self.data = preproccessed_data
+            # make feature dataframe
+            X_y = pd.DataFrame(columns=[CONST.CLASS_START, CONST.CLASS_END])
 
-        # make feature dataframe
-        X_y = pd.DataFrame(columns=[CONST.CLASS_START, CONST.CLASS_END])
+            peaks = self.findPeak(preproccessed_data, CONST.CLASS_WINDOW_SIZE, CONST.CLASS_ACC_THR, CONST.CLASS_RR_THR, CONST.ACCZ, CONST.CLASS_FEAT_THR, CONST.CLASS_PEAK_THR)
 
-        peaks = self.findPeak(preproccessed_data, CONST.CLASS_WINDOW_SIZE, CONST.CLASS_ACC_THR, CONST.CLASS_RR_THR, CONST.ACCZ, CONST.CLASS_FEAT_THR, CONST.CLASS_PEAK_THR)
-
-        for peak in peaks:
-            d = pd.DataFrame({CONST.CLASS_START: [int(peak - CONST.CLASS_WINDOW_SIZE / 2)],
-                              CONST.CLASS_END: [int(peak + CONST.CLASS_WINDOW_SIZE / 2)]})
+            for peak in peaks:
+                d = pd.DataFrame({CONST.CLASS_START: [int(peak - CONST.CLASS_WINDOW_SIZE / 2)],
+                                CONST.CLASS_END: [int(peak + CONST.CLASS_WINDOW_SIZE / 2)]})
+                
+                X_y = pd.concat([X_y, d], ignore_index=True)
             
-            X_y = pd.concat([X_y, d], ignore_index=True)
-        
-        self.X_y = X_y
+            self.X_y = X_y
 
-        # Add feature which depends only on one sensor, like range
-        def add_feature(fname, sensor):
-            v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensor) for index, row in X_y.iterrows()]
-            X_y[fname.__name__ + str(sensor)] = v
+            # Add feature which depends only on one sensor, like range
+            def add_feature(fname, sensor):
+                v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensor) for index, row in X_y.iterrows()]
+                X_y[fname.__name__ + str(sensor)] = v
+                
+            # Add feature which depends on more than one sensors, like magnitude
+            def add_feature_mult_sensor(fname, sensors):
+                v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensors) for index, row in X_y.iterrows()]
+                
+                name = "_".join(sensors)
+                X_y[fname.__name__ + name] = v
             
-        # Add feature which depends on more than one sensors, like magnitude
-        def add_feature_mult_sensor(fname, sensors):
-            v = [fname(preproccessed_data[int(row[CONST.CLASS_START]):int(row[CONST.CLASS_END])], sensors) for index, row in X_y.iterrows()]
+            # Range 
+            def range_(df, sensor):
+                return np.max(df[sensor]) - np.min(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(range_, sensor)
+
+            # Minimum
+            def min_(df, sensor):
+                return np.min(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(min_, sensor)
+
+            # Maximum
+            def max_(df, sensor):
+                return np.max(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(max_, sensor)
+
+            # Average
+            def avg_(df, sensor):
+                return np.mean(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(avg_, sensor)
+
+            # Absolute Average
+            def absavg_(df, sensor):
+                return np.mean(np.absolute(df[sensor]))
+            for sensor in CONST.CLASS_COLS:
+                add_feature(absavg_, sensor)
+
+            def kurtosis_f_(df , sensor):
+                from scipy.stats import kurtosis 
+                val = kurtosis(df[sensor],fisher = True)
+                return val
+            for sensor in CONST.CLASS_COLS:
+                add_feature(kurtosis_f_, sensor)
+
+            def kurtosis_p_(df , sensor):
+                from scipy.stats import kurtosis 
+                val = kurtosis(df[sensor],fisher = False)
+                return val
+            for sensor in CONST.CLASS_COLS:
+                add_feature(kurtosis_p_, sensor)
+
+            #skewness
+            def skewness_statistic_(df, sensor):
+                if(len(df) == 0):
+                    print(df)
+                from scipy.stats import skewtest 
+                statistic, pvalue = skewtest(df[sensor], nan_policy='propagate')
+                return statistic
+            for sensor in CONST.CLASS_COLS:
+                add_feature(skewness_statistic_, sensor)
+
+            def skewness_pvalue_(df, sensor):
+                from scipy.stats import skewtest 
+                statistic, pvalue = skewtest(df[sensor])
+                return pvalue
+            for sensor in CONST.CLASS_COLS:
+                add_feature(skewness_pvalue_, sensor)
+
+            # Standard Deviation
+            def std_(df, sensor):
+                return np.std(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(std_, sensor)
+
+            #angle between two vectors
+            def anglebetween_(df, sensors):
+                v1 = sensors[0]
+                v2 = sensors[1]
+                v1_u = df[v1] / np.linalg.norm(df[v1])
+                v2_u = df[v2] / np.linalg.norm(df[v2])
+                return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+            for comb in list(itertools.combinations(CONST.CLASS_COLS, 2)):
+                add_feature_mult_sensor(anglebetween_, comb)
+
+            #inter quartile range
+            def iqr_(df, sensor):
+                from scipy import stats
+                return stats.iqr(df[sensor])
+            for sensor in CONST.CLASS_COLS:
+                add_feature(iqr_, sensor)
+
+            # Max position - min position (relative difference)
+            def maxmin_relative_pos_(df, sensor):
+                return np.argmax(np.array(df[sensor])) - np.argmin(np.array(df[sensor]))
+            for sensor in CONST.CLASS_COLS:
+                add_feature(maxmin_relative_pos_, sensor)
             
-            name = "_".join(sensors)
-            X_y[fname.__name__ + name] = v
+            X_y = X_y.dropna()
+
+
+            # KNN predict
+            # Read Features
+            with open(CONST.CURRENT_PATH + '/features.txt') as f:
+                features = f.read().strip().split("\n")
+            f.close()
+
+            model_filename = CONST.CURRENT_PATH + '/knn_model.joblib'
+            loaded_knn_model = joblib.load(model_filename)
+
+            predicted_labels = loaded_knn_model.predict(X_y[features].values)
+
+            self.classification_result = predicted_labels
         
-        # Range 
-        def range_(df, sensor):
-            return np.max(df[sensor]) - np.min(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(range_, sensor)
-
-        # Minimum
-        def min_(df, sensor):
-            return np.min(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(min_, sensor)
-
-        # Maximum
-        def max_(df, sensor):
-            return np.max(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(max_, sensor)
-
-        # Average
-        def avg_(df, sensor):
-            return np.mean(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(avg_, sensor)
-
-        # Absolute Average
-        def absavg_(df, sensor):
-            return np.mean(np.absolute(df[sensor]))
-        for sensor in CONST.CLASS_COLS:
-            add_feature(absavg_, sensor)
-
-        def kurtosis_f_(df , sensor):
-            from scipy.stats import kurtosis 
-            val = kurtosis(df[sensor],fisher = True)
-            return val
-        for sensor in CONST.CLASS_COLS:
-            add_feature(kurtosis_f_, sensor)
-
-        def kurtosis_p_(df , sensor):
-            from scipy.stats import kurtosis 
-            val = kurtosis(df[sensor],fisher = False)
-            return val
-        for sensor in CONST.CLASS_COLS:
-            add_feature(kurtosis_p_, sensor)
-
-        #skewness
-        def skewness_statistic_(df, sensor):
-            if(len(df) == 0):
-                print(df)
-            from scipy.stats import skewtest 
-            statistic, pvalue = skewtest(df[sensor], nan_policy='propagate')
-            return statistic
-        for sensor in CONST.CLASS_COLS:
-            add_feature(skewness_statistic_, sensor)
-
-        def skewness_pvalue_(df, sensor):
-            from scipy.stats import skewtest 
-            statistic, pvalue = skewtest(df[sensor])
-            return pvalue
-        for sensor in CONST.CLASS_COLS:
-            add_feature(skewness_pvalue_, sensor)
-
-        # Standard Deviation
-        def std_(df, sensor):
-            return np.std(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(std_, sensor)
-
-        #angle between two vectors
-        def anglebetween_(df, sensors):
-            v1 = sensors[0]
-            v2 = sensors[1]
-            v1_u = df[v1] / np.linalg.norm(df[v1])
-            v2_u = df[v2] / np.linalg.norm(df[v2])
-            return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-        for comb in list(itertools.combinations(CONST.CLASS_COLS, 2)):
-            add_feature_mult_sensor(anglebetween_, comb)
-
-        #inter quartile range
-        def iqr_(df, sensor):
-            from scipy import stats
-            return stats.iqr(df[sensor])
-        for sensor in CONST.CLASS_COLS:
-            add_feature(iqr_, sensor)
-
-        # Max position - min position (relative difference)
-        def maxmin_relative_pos_(df, sensor):
-            return np.argmax(np.array(df[sensor])) - np.argmin(np.array(df[sensor]))
-        for sensor in CONST.CLASS_COLS:
-            add_feature(maxmin_relative_pos_, sensor)
-        
-        X_y = X_y.dropna()
-
-
-        # KNN predict
-        # Read Features
-        with open(CONST.CURRENT_PATH + '/features.txt') as f:
-            features = f.read().strip().split("\n")
-        f.close()
-
-        model_filename = CONST.CURRENT_PATH + '/knn_model.joblib'
-        loaded_knn_model = joblib.load(model_filename)
-
-        predicted_labels = loaded_knn_model.predict(X_y[features].values)
-
-        self.classification_result = predicted_labels
+        except Exception as e:
+            return e
     
     def makeAnalysisData(self):
         res_classes = []

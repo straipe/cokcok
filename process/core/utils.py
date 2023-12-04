@@ -1,41 +1,14 @@
-from constant import CONST
+from .constant import CONST
 
-def openStorageCSVFile(file_path):
+
+def standardizeScore(score):
     """
-    CSV 파일을 여는 함수
+    점수 정규화
 
-    Parameters:
-    file_path (list): 다수의 파일 위치 리스트
+    arameters:
+    score (Float): SwingAnalysis의 analysis 함수로부터 산출된 score
 
     Returns:
-    DataFrame list : pandas.core.frame.DataFrame의 리스트
+    score (Float): 정규화 된 score
     """
-    pass
-
-def addFeature(all_data):
-    for data in all_data:
-        data['x+y+z'] = data[CONST.ACCX] + data[CONST.ACCY] + data[CONST.ACCZ]
-        data['x+y'] = data[CONST.ACCX] + data[CONST.ACCY]
-        data['y+z'] = data[CONST.ACCY] + data[CONST.ACCZ]
-        data['x+z'] = data[CONST.ACCX] + data[CONST.ACCZ]
-
-        data['x*y*z'] = data[CONST.ACCX] * data[CONST.ACCY] * data[CONST.ACCZ]
-        data['x*y'] = data[CONST.ACCX] * data[CONST.ACCY]
-        data['y*z'] = data[CONST.ACCY] * data[CONST.ACCZ]
-        data['x*z'] = data[CONST.ACCX] * data[CONST.ACCZ]
-
-        data['p+r+w'] = data[CONST.RVP] + data[CONST.RVR] + data[CONST.RVY]
-        data['p+r'] = data[CONST.RVP] + data[CONST.RVR]
-        data['r+w'] = data[CONST.RVR] + data[CONST.RVY]
-        data['p+w'] = data[CONST.RVP] + data[CONST.RVY]
-
-        data['p*r*w'] = data[CONST.RVP] * data[CONST.RVR] * data[CONST.RVY]
-        data['p*r'] = data[CONST.RVP] * data[CONST.RVR]
-        data['r*w'] = data[CONST.RVR] * data[CONST.RVY]
-        data['p*w'] = data[CONST.RVP] * data[CONST.RVY]
-        
-        del data[CONST.PITCH]
-        del data[CONST.ROLL]
-        del data[CONST.YAW]
-
-    return all_data
+    return score
