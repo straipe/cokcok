@@ -94,30 +94,32 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             try:
                 upload_watch = request.FILES['watch_file']
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                upload_watch.name = now + token
+                upload_watch.name = now + '_' + token
                 watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
                 watch_csv = pd.read_csv(upload_watch)
                 swing_classification = SwingClassification(watch_csv)
-                swing_classification.classification
-                swing_analysis_data = swing_classification.makeAnalysisData
+                swing_classification.classification()
+                swing_analysis_data = swing_classification.classification_result
+                print(swing_analysis_data)
             except MultiValueDictKeyError:
                 watch_url = ""
             # 12개의 스윙을 JSON 데이터로 반환
-            motion_json = {'fo':10,'fu':3,'fs':8,'bo':3,'bu':6} #예시 반환 데이터
-            fo = motion_json['fo']
-            fu = motion_json['fu']
-            fs = motion_json['fs']
-            bo = motion_json['bo']
-            bu = motion_json['bu']
-            total_swing = fo+fu+fs+bo+bu
+            motion_dict = {'bd':0,'bn':0,'bh':0,'bu':0,'fd':0,'fp':0,
+                           'fn':0,'fh':0,'fs':0,'fu':0,'ls':0,'ss':0}
+            for key in motion_dict.keys():
+                pass
+            # API 테스트용 더미 데이터
+            bd=10;bn=3;bh=8;bu=3;fd=6;fp=2;fn=3;fh=5;fs=2;fu=1;ls=2;ss=5
+            total_swing = bd+bn+bh+bu+fd+fp+fn+fh+fs+fu+ls+ss
             player_token = token
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Match_Record VALUES (NULL, '{start_date}',"\
                     f"'{end_date}','{duration}','{total_distance}','{total_energey_burned}',"\
                     f"'{average_heart_rage}','{my_score}',{opponent_score},{score_history},"\
-                    f"{fo},{fu},{bo},{bu},{fs},'{watch_url}','{player_token}');"
+                    f"{bd},{bn},{bh},{bu},{fd},{fp},{fn},{fh},{fs},{fu},{ls},{ss},"\
+                    f"'{watch_url}','{player_token}');"
                 )
                 #업적1 스윙 횟수 누적치 업데이트
                 cursor.execute(
@@ -126,7 +128,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 )
                 #업적2 하이클리어 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{fo} "\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{fh} "\
                     f"WHERE achieve_id=2 and player_token='{token}';"
                 )
                 #업적3 경기 횟수 누적치 업데이트
@@ -226,14 +228,20 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             response_data['my_score'] = my_score
             response_data['opponent_score'] = opponent_score
             response_data['score_history'] = score_history
-            response_data['forehand_overarm'] = fo
-            response_data['forehand_underarm'] = fu
-            response_data['backhand_overarm'] = bo
-            response_data['backhand_underarm'] = bu
-            response_data['forehand_smash'] = fs
+            response_data['back_drive'] = bd
+            response_data['back_hairpin'] = bn
+            response_data['back_high'] = bh
+            response_data['back_under'] = bu
+            response_data['fore_drive'] = fd
+            response_data['fore_drop'] = fp
+            response_data['fore_hairpin'] = fn
+            response_data['fore_high'] = fh
+            response_data['fore_smash'] = fs
+            response_data['fore_under'] = fu
+            response_data['long_service'] = ls
+            response_data['short_service'] = ss
             response_data['watch_url'] = watch_url
             response_data['player_token'] = player_token
-
             return JsonResponse(response_data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
@@ -274,7 +282,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
 
     def get_paginated_response(self, data):
         return Response({
-            'next': self.get_next_link(),
+            #'next': self.get_next_link(),
             'results': data
         })
 
@@ -325,7 +333,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             try:
                 upload_video = request.FILES['video_file']
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                upload_video.name = now + token
+                upload_video.name = now + '_' + token
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
                 player_pose = process_video(video_url)
@@ -351,7 +359,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             
             try:
                 upload_watch = request.FILES['watch_file']
-                upload_watch.name = now + token
+                upload_watch.name = now + '_' + token
                 watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
                 watch_csv = pd.read_csv(upload_watch)
@@ -361,6 +369,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 swing_analysis.analysis('fh')
                 #테스트 필요
                 print(swing_analysis.max)
+                print(swing_analysis.score)
                 wrist_strength = ""
                 wrist_weakness = ""
             except MultiValueDictKeyError:
@@ -432,7 +441,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
 
     def get_paginated_response(self, data):
         return Response({
-            'next': self.get_next_link(),
+            #'next': self.get_next_link(),
             'results': data
         })
 
