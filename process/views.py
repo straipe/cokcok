@@ -12,6 +12,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+from .core.analysis import SwingAnalysis
+from .core.classification import SwingClassification
 from .models import (
     Achievement,
     MatchRecord,
@@ -89,14 +91,18 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             my_score = request.data.get('my_score')
             opponent_score = request.data.get('opponent_score')
             score_history = request.data.get('score_history')
-            upload_watch = request.FILES['watch_file']
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            upload_watch.name = now + token
-            watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
-            watch_url = default_storage.url(watch_path)
-            watch_csv = pd.read_csv(upload_watch)
-            #TODO: 경기 중 측정된 IMU센서 데이터(csv)를 처리하는 로직 구현.
-
+            try:
+                upload_watch = request.FILES['watch_file']
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                upload_watch.name = now + token
+                watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
+                watch_url = default_storage.url(watch_path)
+                watch_csv = pd.read_csv(upload_watch)
+                swing_classification = SwingClassification(watch_csv)
+                swing_classification.classification
+                swing_analysis_data = swing_classification.makeAnalysisData
+            except MultiValueDictKeyError:
+                watch_url = ""
             # 12개의 스윙을 JSON 데이터로 반환
             motion_json = {'fo':10,'fu':3,'fs':8,'bo':3,'bu':6} #예시 반환 데이터
             fo = motion_json['fo']
@@ -323,20 +329,23 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
                 player_pose = process_video(video_url)
-                pose_strength = ""
-                pose_weakness = ""
-                if(player_pose[0]<=0.37):
-                    pose_weakness += "상체 회전이 부족합니다.\n"
-                if(player_pose[0]>0.37):
-                    pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
-                if(player_pose[1]<160):
-                    pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
-                if(player_pose[1]>=160):
-                    pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
-                if(player_pose[2]<160):
-                    pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
-                if(player_pose[2]>=160):
-                    pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
+                if isinstance(player_pose,JsonResponse):
+                    return player_pose
+                else:
+                    pose_strength = ""
+                    pose_weakness = ""
+                    if(player_pose[0]<=0.37):
+                        pose_weakness += "상체 회전이 부족합니다.\n"
+                    if(player_pose[0]>0.37):
+                        pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
+                    if(player_pose[1]<160):
+                        pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
+                    if(player_pose[1]>=160):
+                        pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
+                    if(player_pose[2]<160):
+                        pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
+                    if(player_pose[2]>=160):
+                        pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
             except MultiValueDictKeyError:
                 error_num = error_num + 1
             
@@ -346,7 +355,12 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
                 watch_csv = pd.read_csv(upload_watch)
-                # TODO: upload_watch 데이터를 처리할 로직 작성
+                #스윙 분석 실시
+                swing_analysis = SwingAnalysis()
+                swing_analysis.uploadDataFrame(watch_csv)
+                swing_analysis.analysis('fh')
+                #테스트 필요
+                print(swing_analysis.max)
                 wrist_strength = ""
                 wrist_weakness = ""
             except MultiValueDictKeyError:
@@ -354,7 +368,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             if(error_num<2):
                 player_token = request.data.get('player_token')
                 record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                swing_score = 0
+                swing_score = swing_analysis.score
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO Motion VALUES (NULL, '{video_url}',"\

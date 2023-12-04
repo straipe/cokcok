@@ -597,7 +597,7 @@ def process_video(video_path):
           hip_lengths_preprocess.append(round(hip_lengths[i]/hip_lengths_max,5))
     except IndexError:
       error_message = "스윙을 조금 천천히 해주시길 바랍니다."
-      return JsonResponse({'error':error_message}, status=500)
+      return JsonResponse({'error':error_message})
 
     # 골반 너비의 최솟값(전처리 후)
     hip_lengths_preprocess_min = hip_lengths_preprocess[0]
@@ -618,7 +618,7 @@ def process_video(video_path):
           elbow_angles_preprocess.append(elbow_angles[i])
     except IndexError:
       error_message = "스윙을 조금 천천히 해주시길 바랍니다."
-      return JsonResponse({'error':error_message}, status=500)
+      return JsonResponse({'error':error_message})
 
     # 팔꿈치 각도의 최댓값
     elbow_angles_max = 0
