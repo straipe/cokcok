@@ -67,7 +67,7 @@ class Achievement(models.Model):
 class PlayerAchievement(models.Model):
     relation_id = models.AutoField(primary_key=True, db_comment='관계 아이디')
     player_token = models.CharField(max_length=50)
-    achieve = models.IntegerField(db_comment='업적 아이디')
+    achieve_id = models.IntegerField(db_comment='업적 아이디')
     cumulative_val = models.IntegerField(blank=True, null=True, db_comment='누적치')
     achieve_year_month = models.DateField(blank=True, null=True, db_comment='업적년월')
     d_achieve_date = models.DateField(blank=True, null=True, db_comment='D등급 달성일자')

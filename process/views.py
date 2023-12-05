@@ -20,7 +20,7 @@ from .models import (
     Motion,
     PlayerAchievement
 )
-from .movenet import process_video
+#from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     MatchRecordSerializer,
@@ -50,9 +50,8 @@ class AchievementList(APIView):
 
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO Achievement(achieve_nm,d_min,c_min,b_min,a_min,s_min,"\
-                    f"is_month_update,icon) "\
-                        f"VALUES ('{achieve_nm}',{d_min}, "\
+                    "INSERT INTO Achievement "\
+                        f"VALUES (NULL,'{achieve_nm}',{d_min}, "\
                         f"{c_min}, {b_min}, {a_min}, "\
                         f"{s_min}, '{is_month_update}','{icon}');"
                 )
@@ -63,17 +62,17 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     def get(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            match_id = request.query_params['match_id']
-            if match_id is not None:
+        if len(player) != 0:
+            try:
+                match_id = request.query_params['match_id']
+                match = MatchRecord.objects.filter(match_id=match_id)
+                serializer = MatchRecordSerializer(match, many=True)
+                return Response(serializer.data)
+            except MultiValueDictKeyError:
                 matches = MatchRecord.objects.filter(player_token=token)
                 matches_paginated = self.paginate_queryset(matches,request)
                 serializer = MatchRecordSerializer(matches_paginated, many=True)
-                return self.get_paginated_response(serializer.data)
-            else:
-                match = MatchRecord.objects.filter(match_id=match_id)
-                serializer = MatchRecordSerializer(match, many=True)
-                return JsonResponse(serializer.data)
+                return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
@@ -81,7 +80,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
+        if len(player) != 0:
             start_date = request.data.get('start_date')
             end_date = request.data.get('end_date')
             duration = request.data.get('duration')
@@ -248,20 +247,20 @@ class MatchRecordList(APIView, LimitOffsetPagination):
 
     def delete(self, request):
         token = get_token(request)
-        match_id = request.query_params['match_id']
-        if match_id is None:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    f"delete from Match_Record where player_token='{token}';"
-                )
-            return JsonResponse({"message":"초기화하였습니다."})
-        else:
+        try:
+            match_id = request.query_params['match_id']
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"delete from Match_Record where match_id='{match_id}';"
                 )
             return JsonResponse({"message":"삭제하였습니다."})
-    
+        except MultiValueDictKeyError:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"delete from Match_Record where player_token='{token}';"
+                )
+            return JsonResponse({"message":"초기화하였습니다."})
+            
     def get_limit(self, request):
         if self.limit_query_param:
             with contextlib.suppress(KeyError, ValueError):
@@ -280,19 +279,13 @@ class MatchRecordList(APIView, LimitOffsetPagination):
         except (KeyError, ValueError):
             return 0
 
-    def get_paginated_response(self, data):
-        return Response({
-            #'next': self.get_next_link(),
-            'results': data
-        })
-
 class PlayerAchievementList(APIView):
     def get(self,request):
         token = get_token(request)
         clear = request.query_params['clear']
         player = Player.objects.filter(player_token = token)
-        if player is not None:
-            if clear==0:
+        if len(player) != 0:
+            if int(clear)==0:
                 player_achieve = PlayerAchievement.objects.filter(player_token = token)
                 serializer = PlayerAchievementSerializer(player_achieve, many=True)
             else:
@@ -301,7 +294,7 @@ class PlayerAchievementList(APIView):
                                                                     .order_by('-last_achieve_date')\
                                                                     [:5]
                 serializer = PlayerAchievementSerializer(player_achieve, many=True)
-            return JsonResponse(serializer.data)
+            return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
 
@@ -309,24 +302,24 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
     def get(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            motion_id = request.query_params['motion_id']
-            if motion_id is not None:
+        if len(player) != 0:
+            try:
+                motion_id = request.query_params['motion_id']
+                motion = Motion.objects.filter(motion_id=motion_id)
+                serializer = MotionSerializer(motion, many=True)
+                return Response(serializer.data)
+            except MultiValueDictKeyError:
                 motions = Motion.objects.filter(player_token=token)
                 motions_paginated = self.paginate_queryset(motions,request)
                 serializer = MotionSerializer(motions_paginated, many=True)
-                return self.get_paginated_response(serializer.data)
-            else:
-                motion = Motion.objects.filter(motion_id=motion_id)
-                serializer = MotionSerializer(motion, many=True)
-                return JsonResponse(serializer.data)
+                return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
+        if len(player) != 0:
             error_num = 0
             video_url =""
             watch_url =""
@@ -336,7 +329,9 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 upload_video.name = now + '_' + token
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                player_pose = process_video(video_url)
+                player_pose=[1,2,3]
+                #player_pose = process_video(video_url)
+                pose_score = 0
                 if isinstance(player_pose,JsonResponse):
                     return player_pose
                 else:
@@ -346,14 +341,17 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                         pose_weakness += "상체 회전이 부족합니다.\n"
                     if(player_pose[0]>0.37):
                         pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
+                        pose_score += 20
                     if(player_pose[1]<160):
                         pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
                     if(player_pose[1]>=160):
                         pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
+                        pose_score += 40
                     if(player_pose[2]<160):
                         pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
                     if(player_pose[2]>=160):
                         pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
+                        pose_score += 40
             except MultiValueDictKeyError:
                 error_num = error_num + 1
             
@@ -377,7 +375,8 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             if(error_num<2):
                 player_token = request.data.get('player_token')
                 record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                swing_score = swing_analysis.score
+                wrist_score = max((30000 - swing_analysis.score)/300,0)
+                swing_score = (wrist_score + pose_score) / 2
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO Motion VALUES (NULL, '{video_url}',"\
@@ -395,7 +394,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 response_data['record_date'] = record_date
                 response_data['swing_score'] = swing_score
 
-                return JsonResponse(response_data)
+                return Response(response_data)
             else:
                 return JsonResponse({"message":"처리할 데이터가 없습니다."})
         else:
@@ -404,20 +403,20 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
     def delete(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            motion_id = request.query_params['motion_id']
-            if motion_id is not None:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        f"delete from Motion where player_token='{token}';"
-                    )
-                return JsonResponse({"message":"스윙 데이터를 초기화하였습니다."})
-            else:
+        if len(player) != 0:
+            try:
+                motion_id = request.query_params['motion_id']
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"delete from Motion where motion_id={motion_id};"
                     )
                 return JsonResponse({"message":"삭제하였습니다."})
+            except MultiValueDictKeyError:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"delete from Motion where player_token='{token}';"
+                    )
+                return JsonResponse({"message":"스윙 데이터를 초기화하였습니다."})
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
         
@@ -439,12 +438,6 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
         except (KeyError, ValueError):
             return 0
 
-    def get_paginated_response(self, data):
-        return Response({
-            #'next': self.get_next_link(),
-            'results': data
-        })
-
 def _positive_int(integer_string, strict=False, cutoff=None):
     """
     Cast a string to a strictly positive integer.
@@ -458,7 +451,7 @@ def _positive_int(integer_string, strict=False, cutoff=None):
 
 def get_token(request):
     try:
-        return request.query_params['token']
+        return request.META.get('HTTP_AUTHORIZATION').split()[1]
         
     except (KeyError, ValueError):
         return None
