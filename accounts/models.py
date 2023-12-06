@@ -8,7 +8,7 @@ class Player(models.Model):
     handedness = models.CharField(max_length=5, db_comment='주로 쓰는 손')
     email = models.CharField(max_length=100)
     sns = models.CharField(max_length=30)
-    created_at = models.DateField(db_comment='가입일')
+    created_at = models.DateTimeField(db_comment='가입일')
     is_staff = models.CharField(max_length=1)
 
     class Meta:

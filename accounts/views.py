@@ -11,7 +11,7 @@ from .serializers import PlayerSerializer
 
 class PlayerInfo(APIView):
 
-    def get(self, request, format=None):
+    def get(self, request):
         try:
             token = request.META.get('HTTP_AUTHORIZATION').split()[1]
             player = Player.objects.filter(player_token = token)
@@ -26,6 +26,9 @@ class PlayerInfo(APIView):
     @transaction.atomic    
     def post(self, request):
         request.data['player_token'] = request.META.get('HTTP_AUTHORIZATION').split()[1]
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        request.data['created_at'] = now
+        request.data['is_staff']='0'
         serializer=PlayerSerializer(data=request.data)
         if serializer.is_valid():
             player_token = request.data.get('player_token')
@@ -55,7 +58,7 @@ class PlayerInfo(APIView):
                     )
                 
                 # 월별 업적 조회 및 유저와 월별 업적 간 관계 튜플 추가
-                now = datetime.datetime.now().strftime("%Y-%m-01")
+                month = datetime.datetime.now().strftime("%Y-%m-01 00:00:00")
                 cursor.execute(
                     f"SELECT achieve_id from Achievement where is_month_update=1;"
                 )
@@ -63,16 +66,16 @@ class PlayerInfo(APIView):
                 for i in range(len(month_achieve)):
                     cursor.execute(
                         f"INSERT INTO Player_Achievement(player_token,achieve_id,achieve_year_month) "\
-                        f"values ('{player_token}',{month_achieve[i][0]},'{now}');"
+                        f"values ('{player_token}',{month_achieve[i][0]},'{month}');"
                     )
-            return JsonResponse({"message":"회원가입이 완료되었습니다."})
+            return Response({"message":"회원가입이 완료되었습니다."})
         try:
             if 'player with this player token already exists.' in serializer.errors['player_token']:
-                return JsonResponse({"message":"이미 회원가입된 회원입니다."}, status = 400)
+                return Response({"message":"이미 회원가입된 회원입니다."})
             else:
-                return JsonResponse({"message":"올바르지 않은 형식입니다."}, status = 400)
+                return Response({"message":"올바르지 않은 형식입니다."})
         except KeyError:
-            return JsonResponse({"message":"토큰이 존재하지 않습니다."}, status = 400)
+            return Response({"message":"올바르지 않은 형식입니다."})
     
     def put(self, request, format=None):
         request.data['player_token'] = 0
