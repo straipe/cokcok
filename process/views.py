@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import json
 import pandas as pd
 from accounts.models import Player
 from django.core.files.base import ContentFile
@@ -64,16 +65,10 @@ class MatchRecordList(APIView, LimitOffsetPagination):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
         if len(player) != 0:
-            try:
-                match_id = request.query_params['match_id']
-                match = MatchRecord.objects.filter(match_id=match_id)
-                serializer = MatchRecordSerializer(match, many=True)
-                return Response(serializer.data)
-            except MultiValueDictKeyError:
-                matches = MatchRecord.objects.filter(player_token=token)
-                matches_paginated = self.paginate_queryset(matches,request)
-                serializer = MatchRecordSerializer(matches_paginated, many=True)
-                return Response(serializer.data)
+            matches = MatchRecord.objects.filter(player_token=token)
+            matches_paginated = self.paginate_queryset(matches,request)
+            serializer = MatchRecordSerializer(matches_paginated, many=True)
+            return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
@@ -81,28 +76,39 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
+        print(request.data)
         if len(player) != 0:
-            start_date = request.data.get('start_date')
-            end_date = request.data.get('end_date')
-            duration = request.data.get('duration')
-            total_distance = request.data.get('total_distance')
-            total_energey_burned = request.data.get('total_energey_burned')
-            average_heart_rage = request.data.get('average_heart_rage')
-            my_score = request.data.get('my_score')
-            opponent_score = request.data.get('opponent_score')
-            score_history = request.data.get('score_history')
-            try:
-                upload_watch = request.FILES['watch_file']
+            req_json = request.data.get('metadata_file',None)
+            if req_json is not None:
+                file_content = req_json.read().decode('utf-8')
+                print(file_content)
+                print(json.loads(file_content))
+                request.data = json.loads(file_content)
+                start_date = request.data.get('start_date')
+                end_date = request.data.get('end_date')
+                duration = request.data.get('duration')
+                total_distance = request.data.get('total_distance')
+                total_energy_burned = request.data.get('total_energy_burned')
+                average_heart_rate = request.data.get('average_heart_rate')
+                my_score = request.data.get('my_score')
+                opponent_score = request.data.get('opponent_score')
+                score_history = request.data.get('score_history')
+            else:
+                return JsonResponse({"message":"Json파일을 보내주세요."})
+
+            upload_watch = request.data.get('watch_file',None)
+            if upload_watch is not None:
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 upload_watch.name = now + '_' + token
                 watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
+                upload_watch.seek(0)
                 watch_csv = pd.read_csv(upload_watch)
                 swing_classification = SwingClassification(watch_csv)
                 swing_classification.classification()
                 swing_analysis_data = swing_classification.classification_result
                 print(swing_analysis_data)
-            except MultiValueDictKeyError:
+            else:
                 watch_url = ""
             # 12개의 스윙을 JSON 데이터로 반환
             motion_dict = {'bd':0,'bn':0,'bh':0,'bu':0,'fd':0,'fp':0,
@@ -116,8 +122,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Match_Record VALUES (NULL, '{start_date}',"\
-                    f"'{end_date}','{duration}','{total_distance}','{total_energey_burned}',"\
-                    f"'{average_heart_rage}','{my_score}',{opponent_score},{score_history},"\
+                    f"'{end_date}','{duration}','{total_distance}','{total_energy_burned}',"\
+                    f"'{average_heart_rate}','{my_score}',{opponent_score},{score_history},"\
                     f"{bd},{bn},{bh},{bu},{fd},{fp},{fn},{fh},{fs},{fu},{ls},{ss},"\
                     f"'{watch_url}','{player_token}');"
                 )
@@ -143,7 +149,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 )
                 #업적5 소모칼로리 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energey_burned}"\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energy_burned}"\
                     f"WHERE achieve_id=5 and player_token='{token}';"
                 )
 
@@ -223,8 +229,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             response_data['end_date'] = end_date
             response_data['duration'] = duration
             response_data['total_distance'] = total_distance
-            response_data['total_energey_burned'] = total_energey_burned
-            response_data['average_heart_rage'] = average_heart_rage
+            response_data['total_energy_burned'] = total_energy_burned
+            response_data['average_heart_rate'] = average_heart_rate
             response_data['my_score'] = my_score
             response_data['opponent_score'] = opponent_score
             response_data['score_history'] = score_history
@@ -248,14 +254,14 @@ class MatchRecordList(APIView, LimitOffsetPagination):
 
     def delete(self, request):
         token = get_token(request)
-        try:
-            match_id = request.query_params['match_id']
+        match_id = request.data.get('match_id',None)
+        if match_id is not None:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"delete from Match_Record where match_id='{match_id}';"
+                    f"delete from Match_Record where match_id='{match_id}' and player_token='{token}';"
                 )
             return JsonResponse({"message":"삭제하였습니다."})
-        except MultiValueDictKeyError:
+        else:
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"delete from Match_Record where player_token='{token}';"
@@ -324,20 +330,20 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             error_num = 0
             video_url =""
             watch_url =""
-            try:
-                upload_video = request.FILES['video_file']
+            upload_video = request.data.get('video_file',None)
+            if upload_video is not None:
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                upload_video.name = now + '_' + token
+                upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                player_pose=[1,2,3]
                 #player_pose = process_video(video_url)
-                pose_score = 0
+                player_pose = [1,2,3]
                 if isinstance(player_pose,JsonResponse):
                     return player_pose
                 else:
                     pose_strength = ""
                     pose_weakness = ""
+                    pose_score = 0
                     if(player_pose[0]<=0.37):
                         pose_weakness += "상체 회전이 부족합니다.\n"
                     if(player_pose[0]>0.37):
@@ -353,36 +359,37 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                     if(player_pose[2]>=160):
                         pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
                         pose_score += 40
-            except MultiValueDictKeyError:
+            else:
                 error_num = error_num + 1
             
-            try:
-                upload_watch = request.FILES['watch_file']
-                upload_watch.name = now + '_' + token
+            upload_watch = request.data.get('watch_file',None)
+            if upload_watch is not None:
+                upload_watch.name = now + '_' + token[1] + '.csv'
                 watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
+                upload_watch.seek(0)
                 watch_csv = pd.read_csv(upload_watch)
                 #스윙 분석 실시
-                swing_analysis = SwingAnalysis()
-                swing_analysis.uploadDataFrame(watch_csv)
+                swing_analysis = SwingAnalysis(watch_csv)
                 swing_analysis.analysis('fh')
                 #테스트 필요
-                print(swing_analysis.max)
+                #print(swing_analysis.max)
                 print(swing_analysis.score)
                 wrist_strength = ""
                 wrist_weakness = ""
-            except MultiValueDictKeyError:
+            else:
                 error_num = error_num + 1
+
             if(error_num<2):
-                player_token = request.data.get('player_token')
+                player_token = token
                 record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 wrist_score = max((30000 - swing_analysis.score)/300,0)
-                swing_score = (wrist_score + pose_score) / 2
+                swing_score = int((wrist_score + pose_score) / 2)
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO Motion VALUES (NULL, '{video_url}',"\
                         f"'{watch_url}','{pose_strength}','{wrist_strength}','{pose_weakness}',"\
-                        f"'{wrist_weakness}','{player_token}',{record_date},{swing_score});"\
+                        f"'{wrist_weakness}','{player_token}','{record_date}',{swing_score});"\
                     )
                 response_data = {}
                 response_data['video_url'] = video_url
@@ -394,7 +401,6 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 response_data['player_token'] = player_token
                 response_data['record_date'] = record_date
                 response_data['swing_score'] = swing_score
-
                 return Response(response_data)
             else:
                 return JsonResponse({"message":"처리할 데이터가 없습니다."})
@@ -405,14 +411,14 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
         if len(player) != 0:
-            try:
-                motion_id = request.query_params['motion_id']
+            motion_id = request.data.get('motion_id',None)
+            if motion_id is not None:
                 with connection.cursor() as cursor:
                     cursor.execute(
-                        f"delete from Motion where motion_id={motion_id};"
+                        f"delete from Motion where motion_id={motion_id} and player_token='{token}';"
                     )
                 return JsonResponse({"message":"삭제하였습니다."})
-            except MultiValueDictKeyError:
+            else:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"delete from Motion where player_token='{token}';"

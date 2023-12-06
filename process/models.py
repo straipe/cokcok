@@ -9,7 +9,7 @@ class Motion(models.Model):
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
     wrist_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 단점')
     player_token = models.CharField(max_length=50)
-    record_date = models.DateField(db_comment='측정 날짜')
+    record_date = models.DateTimeField(db_comment='측정 날짜')
     swing_score = models.IntegerField(db_comment='스윙 총점')
 
     class Meta:
@@ -19,12 +19,12 @@ class Motion(models.Model):
 
 class MatchRecord(models.Model):
     match_id = models.AutoField(primary_key=True, db_comment='경기 아이디')
-    start_date = models.DateField(db_comment='시작날짜')
-    end_date = models.DateField(db_comment='종료날짜')
+    start_date = models.DateTimeField(db_comment='시작날짜')
+    end_date = models.DateTimeField(db_comment='종료날짜')
     duration = models.IntegerField(db_comment='경기시간')
     total_distance = models.FloatField(db_comment='뛴거리')
-    total_energey_burned = models.IntegerField(db_comment='칼로리소모량')
-    average_heart_rage = models.IntegerField(db_comment='평균심박수')
+    total_energy_burned = models.FloatField(db_comment='칼로리소모량')
+    average_heart_rate = models.FloatField(db_comment='평균심박수')
     my_score = models.IntegerField(db_comment='내점수')
     opponent_score = models.IntegerField(db_comment='상대점수')
     score_history = models.CharField(max_length=100, db_comment='히스토리')
@@ -70,13 +70,13 @@ class PlayerAchievement(models.Model):
     player_token = models.CharField(max_length=50)
     achieve_id = models.IntegerField(db_comment='업적 아이디')
     cumulative_val = models.IntegerField(blank=True, null=True, db_comment='누적치')
-    achieve_year_month = models.DateField(blank=True, null=True, db_comment='업적년월')
-    d_achieve_date = models.DateField(blank=True, null=True, db_comment='D등급 달성일자')
-    c_achieve_date = models.DateField(blank=True, null=True, db_comment='C등급 달성일자')
-    b_achieve_date = models.DateField(blank=True, null=True, db_comment='B등급 달성일자')
-    a_achieve_date = models.DateField(blank=True, null=True, db_comment='A등급 달성일자')
-    s_achieve_date = models.DateField(blank=True, null=True, db_comment='S등급 달성일자')
-    last_achieve_date = models.DateField(blank=True, null=True, db_comment='최근 달성일자')
+    achieve_year_month = models.DateTimeField(blank=True, null=True, db_comment='업적년월')
+    d_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='D등급 달성일자')
+    c_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='C등급 달성일자')
+    b_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='B등급 달성일자')
+    a_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='A등급 달성일자')
+    s_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='S등급 달성일자')
+    last_achieve_date = models.DateTimeField(blank=True, null=True, db_comment='최근 달성일자')
 
     class Meta:
         managed = False
