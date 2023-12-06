@@ -35,10 +35,12 @@ class PlayerInfo(APIView):
             handedness = request.data.get('handedness')
             email  = request.data.get('email')
             sns = request.data.get('sns')
+            created_at = request.data.get('created_at')
+            is_staff = request.data.get('is_staff')
             with connection.cursor() as cursor:
                 cursor.execute(
                         f"INSERT INTO Player values('{player_token}','{sex}','{years_playing}',"\
-                        f"'{grade}','{handedness}','{email}','{sns}');"
+                        f"'{grade}','{handedness}','{email}','{sns}','{created_at}','{is_staff}');"
                 )
 
                 # 상시 업적 조회 및 유저와 상시 업적 간 관계 튜플 추가
@@ -83,10 +85,13 @@ class PlayerInfo(APIView):
             handedness = request.data.get('handedness')
             email  = request.data.get('email')
             sns  = request.data.get('sns')
+            created_at = request.data.get('created_at')
+            is_staff = request.data.get('is_staff')
             with connection.cursor() as cursor:
                 cursor.execute(
                         f"UPDATE Player SET sex='{sex}',years_playing={years_playing},"\
-                        f"grade='{grade}',handedness='{handedness}',email='{email}',sns='{sns}' "\
+                        f"grade='{grade}',handedness='{handedness}',email='{email}',sns='{sns}',"\
+                        f"created_at='{created_at}',is_staff='{is_staff}' "\
                         f"WHERE player_token = '{player_token}';"
                 )
             return JsonResponse({"message":"개인정보 수정이 완료되었습니다."})
