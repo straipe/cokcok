@@ -36,6 +36,10 @@ class SwingAnalysis:
     
     def addFeature(self, all_data):
         for data in all_data:
+            data[CONST.RVP] = data[CONST.RVP] * 180 / math.pi
+            data[CONST.RVR] = data[CONST.RVR] * 180 / math.pi
+            data[CONST.RVY] = data[CONST.RVY] * 180 / math.pi
+            
             data['x+y+z'] = data[CONST.ACCX] + data[CONST.ACCY] + data[CONST.ACCZ]
             data['x+y'] = data[CONST.ACCX] + data[CONST.ACCY]
             data['y+z'] = data[CONST.ACCY] + data[CONST.ACCZ]

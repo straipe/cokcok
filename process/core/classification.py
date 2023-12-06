@@ -305,10 +305,9 @@ class SwingClassification:
         res_classes = []
 
         for i in range(len(self.classification_result)):
-            find = analysis.SwingAnalysis()
 
             df = self.data.iloc[self.X_y.at[i, CONST.CLASS_START]:self.X_y.at[i, CONST.CLASS_END], :].copy()
-            find.uploadDataFrame(df.reset_index(drop=True))
+            find = analysis.SwingAnalysis(df.reset_index(drop=True))
             find.analysis(self.classification_result[i])
 
             res_classes.append(find)
