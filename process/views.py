@@ -47,13 +47,14 @@ class AchievementList(APIView):
             s_min=request.data.get('s_min')
             is_month_update=request.data.get('is_month_update')
             icon = request.data.get('icon')
+            unit = request.data.get('unit')
 
             with connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO Achievement "\
                         f"VALUES (NULL,'{achieve_nm}',{d_min}, "\
                         f"{c_min}, {b_min}, {a_min}, "\
-                        f"{s_min}, '{is_month_update}','{icon}');"
+                        f"{s_min}, '{is_month_update}','{icon}','{unit}');"
                 )
             return JsonResponse({"message":"업적을 생성하였습니다."})
         return JsonResponse({"message":"형식에 맞지 않은 요청입니다."})

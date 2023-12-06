@@ -58,6 +58,7 @@ class Achievement(models.Model):
     s_min = models.IntegerField(db_comment='S등급 최솟값')
     is_month_update = models.CharField(max_length=1, db_comment='매월갱신여부')
     icon = models.CharField(max_length=100, db_comment='아이콘')
+    unit = models.CharField(max_length=50, db_comment='단위')
 
     class Meta:
         managed = False
