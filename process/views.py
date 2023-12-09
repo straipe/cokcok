@@ -1,5 +1,5 @@
 import contextlib
-import datetime
+from datetime import datetime, timezone, timedelta
 import json
 import pandas as pd
 from accounts.models import Player
@@ -13,13 +13,16 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+from sklearn.exceptions import NotFittedError
+
 from .core.analysis import SwingAnalysis
 from .core.classification import SwingClassification
 from .models import (
     Achievement,
     MatchRecord,
     Motion,
-    PlayerAchievement
+    PlayerAchievement,
+    SwingScore,
 )
 #from .movenet import process_video
 from .serializers import (
@@ -27,6 +30,7 @@ from .serializers import (
     MatchRecordSerializer,
     MotionSerializer,
     PlayerAchievementSerializer,
+    SwingScoreSerializer
 )
 from storages.backends.s3boto3 import S3Boto3Storage
 
@@ -61,82 +65,122 @@ class AchievementList(APIView):
         return JsonResponse({"message":"형식에 맞지 않은 요청입니다."})
 
 class MatchRecordList(APIView, LimitOffsetPagination):
-    def get(self, request, format=None):
-        #token = get_token(request)
-        token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
+    def get(self, request):
+        token = get_token(request)
+        #token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
         player = Player.objects.filter(player_token=token)
         if len(player) != 0:
             matches = MatchRecord.objects.filter(player_token=token)
             matches_paginated = self.paginate_queryset(matches,request)
             serializer = MatchRecordSerializer(matches_paginated, many=True)
+            match_id_set = serializer.data
+            for i in range(len(match_id_set)):
+                match_id = match_id_set[i]['match_id']
+                swings = SwingScore.objects.filter(match_id=match_id)
+                match_id_set[i]['swing_list']=[]
+                for swing in swings:
+                    match_id_set[i]['swing_list'].append({'id':swing.swing_id,'score':swing.score,'type':swing.swing_type})
             return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
     @transaction.atomic
     def post(self, request):
-        #token = get_token(request)
-        token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
+
+        def apple_to_korea_time(timestamp):
+            apple_watch_epoch = datetime(2001, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+            apple_watch_time = apple_watch_epoch + timedelta(seconds=timestamp)
+            korea_timezone = timezone(timedelta(hours=9))
+            korea_time = apple_watch_time.astimezone(korea_timezone)
+            formatted_time = korea_time.strftime("%Y-%m-%d %H:%M:%S")
+            return formatted_time
+        
+        token = get_token(request)
+        #token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
         player = Player.objects.filter(player_token=token)
-        print(request.data)
+        #print(request.data)
         if len(player) != 0:
             req_json = request.data.get('metadata_file',None)
             if req_json is not None:
                 file_content = req_json.read().decode('utf-8')
-                print(file_content)
-                print(json.loads(file_content))
                 json_data = json.loads(file_content)
-                start_date = json_data.get('start_date')
-                end_date = json_data.get('end_date')
+                start_date = apple_to_korea_time(float(json_data.get('startDate')))
+                end_date = apple_to_korea_time(float(json_data.get('endDate')))
                 duration = json_data.get('duration')
-                total_distance = json_data.get('total_distance')
-                total_energy_burned = json_data.get('total_energy_burned')
-                average_heart_rate = json_data.get('average_heart_rate')
-                my_score = json_data.get('my_score')
-                opponent_score = json_data.get('opponent_score')
-                score_history = json_data.get('score_history')
+                total_distance = json_data.get('totalDistance')
+                total_energy_burned = json_data.get('totalEnergyBurned')
+                average_heart_rate = json_data.get('averageHeartRate')
+                my_score = int(json_data.get('myScore'))
+                opponent_score = int(json_data.get('opponentScore'))
+                score_history = json_data.get('scoreHistory')
             else:
                 return JsonResponse({"message":"Json파일을 보내주세요."})
 
             upload_watch = request.data.get('watch_file',None)
             if upload_watch is not None:
-                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 upload_watch.name = now + '_' + token
                 watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
                 upload_watch.seek(0)
                 watch_csv = pd.read_csv(upload_watch)
-                swing_classification = SwingClassification(watch_csv)
-                swing_classification.classification()
-                swing_analysis_data = swing_classification.classification_result
-                print(swing_analysis_data)
+                swing_list = []
+                try:
+                    swing_classification = SwingClassification(watch_csv)
+                    swing_classification.classification()
+                    swing_list = swing_classification.makeAnalysisData()
+                except NotFittedError:
+                    watch_url = ""
+                except AttributeError:
+                    watch_url = ""
             else:
                 watch_url = ""
+            if watch_url is None:
+                watch_url = ""
             # 12개의 스윙을 JSON 데이터로 반환
-            motion_dict = {'bd':0,'bn':0,'bh':0,'bu':0,'fd':0,'fp':0,
-                           'fn':0,'fh':0,'fs':0,'fu':0,'ls':0,'ss':0}
+            motion_dict = {'bd':[0,0],'bn':[0,0],'bh':[0,0],'bu':[0,0],'fd':[0,0],'fp':[0,0],
+                           'fn':[0,0],'fh':[0,0],'fs':[0,0],'fu':[0,0],'ls':[0,0],'ss':[0,0],
+                           'x':[0,0]}
+            
+            # motion_dict에 각 스트로크에 대한 횟수와 총점 저장
+            print(swing_list)
             for key in motion_dict.keys():
-                pass
-            # API 테스트용 더미 데이터
-            bd=10;bn=3;bh=8;bu=3;fd=6;fp=2;fn=3;fh=5;fs=2;fu=1;ls=2;ss=5
-            total_swing = bd+bn+bh+bu+fd+fp+fn+fh+fs+fu+ls+ss
+                for swing in swing_list:
+                    if key == swing[0]:
+                        if swing[1] >= 30:
+                            motion_dict[key][0] = motion_dict[key][0] + 1
+                            motion_dict[key][1] = motion_dict[key][1] + swing[1]
+                        else:
+                            motion_dict['x'][0] = motion_dict['x'][0] + 1
+            #print(motion_dict)
+            # motion_dict에 모든 스윙 총점, 횟수 저장
+            total_num = 0
+            total_score = 0
+            swing_average_score = 0
+            for key in motion_dict.keys():
+                if key != 'x':
+                    total_num += motion_dict[key][0]
+                    total_score += motion_dict[key][1]
+            try:
+                swing_average_score = total_score / total_num
+            except ZeroDivisionError:
+                swing_average_score = 0
             player_token = token
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Match_Record VALUES (NULL, '{start_date}',"\
-                    f"'{end_date}','{duration}','{total_distance}','{total_energy_burned}',"\
-                    f"'{average_heart_rate}','{my_score}',{opponent_score},{score_history},"\
-                    f"{bd},{bn},{bh},{bu},{fd},{fp},{fn},{fh},{fs},{fu},{ls},{ss},"\
-                    f"'{watch_url}','{player_token}');"
+                    f"'{end_date}',{duration},{total_distance},{total_energy_burned},"\
+                    f"{average_heart_rate},{my_score},{opponent_score},'{score_history}',"\
+                    f"'{watch_url}',{swing_average_score},'{player_token}');"
                 )
                 #업적1 스윙 횟수 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_swing} "\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_num} "\
                     f"WHERE achieve_id=1 and player_token='{token}';"
                 )
                 #업적2 하이클리어 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{fh} "\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{motion_dict['fh'][0]} "\
                     f"WHERE achieve_id=2 and player_token='{token}';"
                 )
                 #업적3 경기 횟수 누적치 업데이트
@@ -146,113 +190,116 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 )
                 #업적4 경기 시간 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{duration}"\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{int(duration/60)} "\
                     f"WHERE achieve_id=4 and player_token='{token}';"
                 )
                 #업적5 소모칼로리 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energy_burned}"\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energy_burned} "\
                     f"WHERE achieve_id=5 and player_token='{token}';"
                 )
-
-                #모든 업적 ID 불러오기
+                #업적6 스매시 누적치 업데이트
                 cursor.execute(
-                    "SELECT achieve_id FROM Achievement;"
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{motion_dict['fs'][0]} "\
+                    f"WHERE achieve_id=6 and player_token='{token}';"
                 )
-                total_achieve_id = cursor.fetchall()
+                #업적7 드라이브 누적치 업데이트
+                cursor.execute(
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{motion_dict['fd'][0]+motion_dict['bd'][0]} "\
+                    f"WHERE achieve_id=7 and player_token='{token}';"
+                )
+                #업적8 이동거리 누적치 업데이트
+                cursor.execute(
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_distance} "\
+                    f"WHERE achieve_id=8 and player_token='{token}';"
+                )
+
+                #12개의 스트로크 평균점수, 타입 저장
+                cursor.execute(
+                    f"SELECT match_id FROM Match_Record WHERE start_date='{start_date}'and "\
+                    f"player_token='{player_token}';"
+                )
+                last_match_id = int(cursor.fetchone()[0])
+                for id, swing in enumerate(swing_list):
+                    if swing[1] >= 30:
+                        cursor.execute(
+                            f"INSERT INTO Swing_Score VALUES (NULL,{id+1},{swing[1]},'{swing[0]}',"\
+                            f"{last_match_id});"
+                        )
+                    else:
+                        cursor.execute(
+                            f"INSERT INTO Swing_Score VALUES (NULL,{id+1},0,'x',"\
+                            f"{last_match_id});"
+                        )
+                
+                #모든 업적 ID 불러오기
+                total_achieve_num = PlayerAchievement.objects.filter(player_token=token)
 
                 #등급 업데이트
-                for i in range(1,len(total_achieve_id)+1):
+                for i in range(1,len(total_achieve_num)+1):
                     cursor.execute(
                         f"SELECT cumulative_val FROM Player_Achievement WHERE achieve_id={i} and "\
-                        f"player_token = '{token}';"
+                        f"player_token='{token}';"
                     )
                     cumulative_val = cursor.fetchone()
-
                     cursor.execute(
                         f"SELECT d_min,c_min,b_min,a_min,s_min FROM Achievement WHERE achieve_id={i};"
                     )
                     boundary_val = cursor.fetchall()
-
                     cursor.execute(
                         "SELECT d_achieve_date,c_achieve_date,b_achieve_date,a_achieve_date,"\
                         f"s_achieve_date FROM Player_Achievement WHERE achieve_id={i} "\
                         f"and player_token='{token}';"
                     )
                     is_update = cursor.fetchall() #승급날짜가 기록되어있는지 여부를 확인
-
                     # D등급 달성여부 확인
                     if is_update[0][0] is None:
-                        if cumulative_val >= boundary_val[0][0]:
+                        if cumulative_val[0] >= boundary_val[0][0]:
                             cursor.execute(
-                                f"UPDATE Player_Achievement SET d_achieve_date='{now}' "\
+                                f"UPDATE Player_Achievement SET d_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
                                 f"WHERE achieve_id={i} and player_token='{token}';"
                             )
 
                     # C등급 달성여부 확인
-                    if is_update[1][0] is None:
-                        if cumulative_val >= boundary_val[1][0]:
+                    if is_update[0][1] is None:
+                        if cumulative_val[0] >= boundary_val[0][1]:
                             cursor.execute(
-                                f"UPDATE Player_Achievement SET c_achieve_date='{now}' "\
+                                f"UPDATE Player_Achievement SET c_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
                                 f"WHERE achieve_id={i} and player_token='{token}';"
                             )
 
                     # B등급 달성여부 확인
-                    if is_update[2][0] is None:
-                        if cumulative_val >= boundary_val[2][0]:
+                    if is_update[0][2] is None:
+                        if cumulative_val[0] >= boundary_val[0][2]:
                             cursor.execute(
-                                f"UPDATE Player_Achievement SET b_achieve_date='{now}' "\
+                                f"UPDATE Player_Achievement SET b_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
                                 f"WHERE achieve_id={i} and player_token='{token}';"
                             )
 
                     # A등급 달성여부 확인
-                    if is_update[3][0] is None:
-                        if cumulative_val >= boundary_val[3][0]:
+                    if is_update[0][3] is None:
+                        if cumulative_val[0] >= boundary_val[0][3]:
                             cursor.execute(
-                                f"UPDATE Player_Achievement SET a_achieve_date='{now}' "\
+                                f"UPDATE Player_Achievement SET a_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
                                 f"WHERE achieve_id={i} and player_token='{token}';"
                             )
 
                     # S등급 달성여부 확인
-                    if is_update[4][0] is None:
-                        if cumulative_val >= boundary_val[4][0]:
+                    if is_update[0][4] is None:
+                        if cumulative_val[0] >= boundary_val[0][4]:
                             cursor.execute(
-                                f"UPDATE Player_Achievement SET s_achieve_date='{now}' "\
+                                f"UPDATE Player_Achievement SET s_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
                                 f"WHERE achieve_id={i} and player_token='{token}';"
                             )
-
-            response_data = {}
-            response_data['start_date'] = start_date
-            response_data['end_date'] = end_date
-            response_data['duration'] = duration
-            response_data['total_distance'] = total_distance
-            response_data['total_energy_burned'] = total_energy_burned
-            response_data['average_heart_rate'] = average_heart_rate
-            response_data['my_score'] = my_score
-            response_data['opponent_score'] = opponent_score
-            response_data['score_history'] = score_history
-            response_data['back_drive'] = bd
-            response_data['back_hairpin'] = bn
-            response_data['back_high'] = bh
-            response_data['back_under'] = bu
-            response_data['fore_drive'] = fd
-            response_data['fore_drop'] = fp
-            response_data['fore_hairpin'] = fn
-            response_data['fore_high'] = fh
-            response_data['fore_smash'] = fs
-            response_data['fore_under'] = fu
-            response_data['long_service'] = ls
-            response_data['short_service'] = ss
-            response_data['watch_url'] = watch_url
-            response_data['player_token'] = player_token
-            return JsonResponse(response_data)
+            return JsonResponse({"message":"경기 기록이 성공적으로 업로드 되었습니다."})
         else:
-            return JsonResponse({"message":"회원가입을 해주세요."})
+            return JsonResponse({"error":"회원가입을 해주세요."})
+
 
     def delete(self, request):
         token = get_token(request)
@@ -287,7 +334,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             )
         except (KeyError, ValueError):
             return 0
-
+    
 class PlayerAchievementList(APIView):
     def get(self,request):
         token = get_token(request)
@@ -334,7 +381,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
             watch_url =""
             upload_video = request.data.get('video_file',None)
             if upload_video is not None:
-                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
@@ -375,17 +422,19 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 swing_analysis = SwingAnalysis(watch_csv)
                 swing_analysis.analysis('fh')
                 #테스트 필요
-                #print(swing_analysis.max)
                 print(swing_analysis.score)
+                swing_analysis.interpret()
                 wrist_strength = ""
                 wrist_weakness = ""
+                for feedback in swing_analysis.feedback:
+                    wrist_weakness += feedback+"\n"
             else:
                 error_num = error_num + 1
 
             if(error_num<2):
                 player_token = token
-                record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                wrist_score = max((30000 - swing_analysis.score)/300,0)
+                record_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                wrist_score = max((3 - swing_analysis.score)*100/3,0)
                 swing_score = int((wrist_score + pose_score) / 2)
                 with connection.cursor() as cursor:
                     cursor.execute(
