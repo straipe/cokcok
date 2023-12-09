@@ -35,7 +35,7 @@ from .serializers import (
 from storages.backends.s3boto3 import S3Boto3Storage
 
 class AchievementList(APIView):
-    def get(self, request, format=None):
+    def get(self, request):
         achievements = Achievement.objects.all()
         serializer = AchievementSerializer(achievements,many=True)
         return Response(serializer.data)
@@ -53,6 +53,7 @@ class AchievementList(APIView):
             is_month_update=request.data.get('is_month_update')
             icon = request.data.get('icon')
             unit = request.data.get('unit')
+            now = datetime.now().strftime("%Y-%m-01 00:00:00")
 
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -61,6 +62,27 @@ class AchievementList(APIView):
                         f"{c_min}, {b_min}, {a_min}, "\
                         f"{s_min}, '{is_month_update}','{icon}','{unit}');"
                 )
+                players = Player.objects.all()
+                for player in players:
+                    token = player.player_token
+                    achieves = Achievement.objects.all()
+                    for achieve in achieves:
+                        player_achieve = PlayerAchievement.objects.filter(player_token=token,achieve_id=achieve.achieve_id)
+                        if len(player_achieve) == 0:
+                            is_month_update = Achievement.objects.filter(achieve_id=achieve.achieve_id)[0].is_month_update
+                            if is_month_update == 0:
+                                cursor.execute(
+                                    "INSERT INTO Player_Achievement "\
+                                        f"VALUES (NULL,'{token}',{achieve.achieve_id}, "\
+                                        f"0,NULL,NULL,NULL,NULL,NULL,NULL,NULL);"
+                                )
+                            else:
+                                cursor.execute(
+                                    "INSERT INTO Player_Achievement "\
+                                        f"VALUES (NULL,'{token}',{achieve.achieve_id}, "\
+                                        f"0,'{now}',NULL,NULL,NULL,NULL,NULL,NULL);"
+                                )
+
             return JsonResponse({"message":"업적을 생성하였습니다."})
         return JsonResponse({"message":"형식에 맞지 않은 요청입니다."})
 
@@ -173,10 +195,12 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                     f"{average_heart_rate},{my_score},{opponent_score},'{score_history}',"\
                     f"'{watch_url}',{swing_average_score},'{player_token}');"
                 )
+                future = datetime.now()+datetime.timedelta(31).strftime("%Y-%m-01")
+                now2 = datetime.now().strftime("%Y-%m-01")
                 #업적1 스윙 횟수 누적치 업데이트
                 cursor.execute(
                     f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_num} "\
-                    f"WHERE achieve_id=1 and player_token='{token}';"
+                    f"WHERE achieve_id=1 and player_token='{token}' and '{now2}'<achieve_year_month<'{future}';"
                 )
                 #업적2 하이클리어 누적치 업데이트
                 cursor.execute(
@@ -211,7 +235,17 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 #업적8 이동거리 누적치 업데이트
                 cursor.execute(
                     f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_distance} "\
-                    f"WHERE achieve_id=8 and player_token='{token}';"
+                    f"WHERE achieve_id=8 and player_token='{token}' and '{now2}'<achieve_year_month<'{future}';"
+                )
+                #업적9 언더클리어 누적치 업데이트
+                cursor.execute(
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{motion_dict['bu'][0]+motion_dict['fu'][0]} "\
+                    f"WHERE achieve_id=9 and player_token='{token}' and '{now2}'<achieve_year_month<'{future}';"
+                )
+                #업적10 헤어핀 누적치 업데이트
+                cursor.execute(
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{motion_dict['bn'][0]+motion_dict['fn'][0]} "\
+                    f"WHERE achieve_id=10 and player_token='{token}' and '{now2}'<achieve_year_month<'{future}';"
                 )
 
                 #12개의 스트로크 평균점수, 타입 저장
