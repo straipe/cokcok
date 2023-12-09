@@ -19,7 +19,8 @@ class SwingClassification:
     feature.txt, knn_model.joblib 파일에 의존성을 갖는다
 
     field:
-    data (DataFrame): 분석 대상 data. class 생성자로 배정된다
+    data (DataFrame): 분류 대상 경기 data. class 생성자로 배정된다
+    raw_data(DataFrame): 분류 후 스윙 분석에 사용하기 위한 data
     preproccessed_data (DataFrame): 전처리 된 분석 대상 data
     X_y (DataFrame): 분석된 data의 스윙 시작, 끝 index 정보 기록
     classification_result (String[]): data에서 찾고, 분류된 스윙 종류를 순서대로 기록
@@ -41,6 +42,10 @@ class SwingClassification:
             data.at[r, CONST.RVP] = data.at[r, CONST.RVP] * 180 / math.pi
             data.at[r, CONST.RVR] = data.at[r, CONST.RVR] * 180 / math.pi
             data.at[r, CONST.RVY] = data.at[r, CONST.RVY] * 180 / math.pi
+        
+        data.drop(CONST.PITCH, axis=1, inplace=True)
+        data.drop(CONST.ROLL, axis=1, inplace=True)
+        data.drop(CONST.YAW, axis=1, inplace=True)
         
         return data
 
@@ -164,8 +169,8 @@ class SwingClassification:
     
     def classification(self):
         try:
+            self.raw_data = self.data.copy()
             preproccessed_data = self.preprocess(self.data)
-            self.preproccessed_data = preproccessed_data
 
             # make feature dataframe
             X_y = pd.DataFrame(columns=[CONST.CLASS_START, CONST.CLASS_END])
@@ -306,12 +311,12 @@ class SwingClassification:
 
         for i in range(len(self.classification_result)):
 
-            df = self.data.iloc[self.X_y.at[i, CONST.CLASS_START]:self.X_y.at[i, CONST.CLASS_END], :].copy()
+            df = self.raw_data.iloc[self.X_y.at[i, CONST.CLASS_START]:self.X_y.at[i, CONST.CLASS_END], :].copy()
             find = analysis.SwingAnalysis(df.reset_index(drop=True))
-            find.analysis(self.classification_result[i])
+            find.analysis(self.classification_result[i], False)
 
             res_classes.append(find)
         
         self.swing_classification_analysis = res_classes
 
-        return self.swing_classification_analysis
+        return res_classes
