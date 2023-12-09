@@ -62,7 +62,8 @@ class AchievementList(APIView):
 
 class MatchRecordList(APIView, LimitOffsetPagination):
     def get(self, request, format=None):
-        token = get_token(request)
+        #token = get_token(request)
+        token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
         player = Player.objects.filter(player_token=token)
         if len(player) != 0:
             matches = MatchRecord.objects.filter(player_token=token)
@@ -74,7 +75,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     
     @transaction.atomic
     def post(self, request):
-        token = get_token(request)
+        #token = get_token(request)
+        token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
         player = Player.objects.filter(player_token=token)
         print(request.data)
         if len(player) != 0:
@@ -83,16 +85,16 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 file_content = req_json.read().decode('utf-8')
                 print(file_content)
                 print(json.loads(file_content))
-                request.data = json.loads(file_content)
-                start_date = request.data.get('start_date')
-                end_date = request.data.get('end_date')
-                duration = request.data.get('duration')
-                total_distance = request.data.get('total_distance')
-                total_energy_burned = request.data.get('total_energy_burned')
-                average_heart_rate = request.data.get('average_heart_rate')
-                my_score = request.data.get('my_score')
-                opponent_score = request.data.get('opponent_score')
-                score_history = request.data.get('score_history')
+                json_data = json.loads(file_content)
+                start_date = json_data.get('start_date')
+                end_date = json_data.get('end_date')
+                duration = json_data.get('duration')
+                total_distance = json_data.get('total_distance')
+                total_energy_burned = json_data.get('total_energy_burned')
+                average_heart_rate = json_data.get('average_heart_rate')
+                my_score = json_data.get('my_score')
+                opponent_score = json_data.get('opponent_score')
+                score_history = json_data.get('score_history')
             else:
                 return JsonResponse({"message":"Json파일을 보내주세요."})
 
