@@ -79,6 +79,8 @@ class PlayerInfo(APIView):
     
     def put(self, request, format=None):
         request.data['player_token'] = 0
+        request.data['created_at'] = '2023-12-09'
+        request.data['is_staff']='0'
         serializer = PlayerSerializer(data=request.data)
         if serializer.is_valid():
             player_token = request.META.get('HTTP_AUTHORIZATION').split()[1]
@@ -94,7 +96,7 @@ class PlayerInfo(APIView):
                 cursor.execute(
                         f"UPDATE Player SET sex='{sex}',years_playing={years_playing},"\
                         f"grade='{grade}',handedness='{handedness}',email='{email}',sns='{sns}',"\
-                        f"created_at='{created_at}',is_staff='{is_staff}' "\
+                        f"is_staff='{is_staff}' "\
                         f"WHERE player_token = '{player_token}';"
                 )
             return JsonResponse({"message":"개인정보 수정이 완료되었습니다."})
