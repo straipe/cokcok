@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Achievement, MatchRecord, Motion, PlayerAchievement
+from .models import Achievement, MatchRecord, Motion, PlayerAchievement, SwingScore
 
 class AchievementSerializer(serializers.ModelSerializer):
      class Meta:
@@ -20,3 +20,8 @@ class PlayerAchievementSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlayerAchievement
         fields = [field.name for field in PlayerAchievement._meta.get_fields()]
+
+class SwingScoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SwingScore
+        fields = [field.name for field in SwingScore._meta.get_fields()]
