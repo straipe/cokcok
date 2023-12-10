@@ -7,6 +7,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import Http404, JsonResponse
 from django.db import connection, transaction
+from django.db.models import Q
 from django.shortcuts import render, redirect
 from django.utils.datastructures import MultiValueDictKeyError
 from rest_framework import status
@@ -17,6 +18,7 @@ from sklearn.exceptions import NotFittedError
 
 from .core.analysis import SwingAnalysis
 from .core.classification import SwingClassification
+from .core.constant import CONST
 from .models import (
     Achievement,
     MatchRecord,
@@ -24,7 +26,7 @@ from .models import (
     PlayerAchievement,
     SwingScore,
 )
-#from .movenet import process_video
+from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     MatchRecordSerializer,
@@ -268,7 +270,10 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                         )
                 
                 #모든 업적 ID 불러오기
-                total_achieve_num = PlayerAchievement.objects.filter(player_token=token)
+                total_achieve_num = PlayerAchievement.objects.filter(Q(player_token=token) &
+                                                                     (Q(achieve_year_month__isnull=True)\
+                                                                       | Q(achieve_year_month=now_01))
+                                                                     )
 
                 #등급 업데이트
                 for i in range(1,len(total_achieve_num)+1):
@@ -420,8 +425,8 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                #player_pose = process_video(video_url)
-                player_pose = [1,2,3]
+                player_pose = process_video(video_url)
+                #player_pose = [1,2,3]
                 if isinstance(player_pose,JsonResponse):
                     return player_pose
                 else:
@@ -461,8 +466,14 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 swing_analysis.interpret()
                 wrist_strength = ""
                 wrist_weakness = ""
-                for feedback in swing_analysis.feedback:
-                    wrist_weakness += feedback+"\n"
+                #스윙 피드백 리스트
+                swing_feedback_dict = CONST.SWING_INTERPRET_RES
+
+                for key in swing_analysis.feedback:
+                    if int(key)>300:
+                        wrist_strength += swing_feedback_dict[key]+"\n"
+                    else:
+                        wrist_weakness += swing_feedback_dict[key]+"\n"
             else:
                 error_num = error_num + 1
 
@@ -487,6 +498,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 response_data['player_token'] = player_token
                 response_data['record_date'] = record_date
                 response_data['swing_score'] = swing_score
+                response_data['wrist_max_acc'] = swing_analysis.res_max
                 return Response(response_data)
             else:
                 return JsonResponse({"message":"처리할 데이터가 없습니다."})
