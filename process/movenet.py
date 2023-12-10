@@ -2,7 +2,6 @@
 
 from django.http import JsonResponse
 import tensorflow as tf
-import tensorflow_hub as hub
 from tensorflow_docs.vis import embed
 import numpy as np
 
@@ -17,24 +16,13 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import json
 import pandas as pd
-
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
+from . import load
 import matplotlib.patches as patches
 
 import imageio
 from IPython.display import HTML, display
-
-model_name = "movenet_thunder"
-
-if "movenet_thunder" in model_name:
-    module = hub.load("https://tfhub.dev/google/movenet/singlepose/thunder/4")
-    input_size = 256
-elif "movenet_lightning" in model_name:
-    module = hub.load("https://tfhub.dev/google/movenet/singlepose/lightning/4")
-    input_size = 192
-else:
-    raise ValueError("Unsupported model name: %s" % model_name)
 
 def movenet(input_image):
     """Runs detection on an input image.
@@ -48,7 +36,7 @@ def movenet(input_image):
       A [1, 1, 17, 3] float numpy array representing the predicted keypoint
       coordinates and scores.
     """
-    model = module.signatures['serving_default']
+    model = load.module.signatures['serving_default']
 
     # SavedModel format expects tensor type of int32.
     input_image = tf.cast(input_image, dtype=tf.int32)
@@ -574,7 +562,7 @@ def process_video(video_path):
     for frame_idx in range(num_frames):
         keypoints_with_scores = run_inference(
             movenet, image[frame_idx, :, :, :], crop_region,
-            crop_size=[input_size, input_size])
+            crop_size=[load.input_size, load.input_size])
         human_count += is_human(keypoints_with_scores)
         keypoints_with_scores_dict["x"][frame_idx] = (keypoints_with_scores[0,0,:,1]).tolist() #image_width* 삭제
         keypoints_with_scores_dict["y"][frame_idx] = (keypoints_with_scores[0,0,:,0]).tolist() #image_height* 삭제
