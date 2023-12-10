@@ -38,7 +38,11 @@ class SwingAnalysis:
     """
 
     def __init__(self, df):
-        self.data = df
+            self.data = df
+            if self.data.empty:
+                raise ex.EmptyDataError
+            if not type(df) == pd.DataFrame:
+                raise ex.InvalidDataError
     
     def addFeature(self, all_data):
         for data in all_data:
@@ -177,9 +181,16 @@ class SwingAnalysis:
     def analysis(self, stroke, sol=True):
         try:
             self.stroke = stroke
+            if not self.stroke:
+                raise ex.EmptyValueError(self.stroke)
+            if not type(self.stroke) == str:
+                raise ex.InvalidValueError(self.stroke)
 
             if sol: self.data = self.cutData([self.data])[0]
             else: self.data = self.simpleCutData([self.data])[0]
+
+            if len(self.data) != CONST.SWING_BEFORE_IMPACT + CONST.SWING_AFTER_IMPACT:
+                raise ex.CutDataError(self.data)
 
             added_data = self.addFeature([self.data])
 
@@ -231,6 +242,11 @@ class SwingAnalysis:
 
     def interpret(self):
         try:
+            try:
+                self.score
+            except AttributeError:
+                raise ex.MethodOrderError
+            
             res_list = [0] * (CONST.SWING_BEFORE_IMPACT + CONST.SWING_AFTER_IMPACT)
             for tuple in self.max:
                 for i in range(CONST.SWING_WINDOW_SIZE):
@@ -282,7 +298,7 @@ class SwingAnalysis:
                     self.feedback.pop()
                     self.feedback.append('001') # 준비 스윙 속도 부족
             else:
-                self.feedback.append('300') # 백스윙 속도 적당
+                self.feedback.append('500') # 백스윙 속도 적당
 
             if abs(valres[CONST.ACCX]) > 2 or abs(valres[CONST.ACCY]) > 2 or abs(valres[CONST.ACCZ]) > 2:
                 self.feedback.append('010') # 준비 스윙 궤적 이상
@@ -299,7 +315,7 @@ class SwingAnalysis:
                         self.feedback.pop()
                         self.feedback.append('031') # 010 준비 스윙 깊이 부족
             else:
-                self.feedback.append('301') # 백스윙 궤적 올바름
+                self.feedback.append('510') # 백스윙 궤적 올바름
             
             # 임펙트
             valres = {}
@@ -339,7 +355,7 @@ class SwingAnalysis:
                         self.feedback.pop()
                         self.feedback.append('131') # 110 임펙트 스윙 손목 회전 이상
             else:
-                self.feedback.append('401') #임펙트 스윙 손목 회전 감지
+                self.feedback.append('610') #임펙트 스윙 손목 회전 감지
             
             # 팔로스로우
             valres = {}
@@ -366,7 +382,7 @@ class SwingAnalysis:
                     self.feedback.pop()
                     self.feedback.append('201') # 임펙트 이후 자세가 부자연스러움
             else:
-                self.feedback.append('500') # 임펙트 이후 자세 안정
+                self.feedback.append('700') # 임펙트 이후 자세 안정
                 
             if valres[CONST.RVP] > 1000 and stmres[CONST.RVP] < 12:
                 self.feedback.append('210') # 손목회전이 민첩하지 않음
@@ -375,7 +391,7 @@ class SwingAnalysis:
                     self.feedback.pop()
                     self.feedback.append('211') # 손목회전이 민첩하지 않음
             else:
-                self.feedback.append('501') # 임펙트 이후 손목회전이 자연스러움
+                self.feedback.append('710') # 임펙트 이후 손목회전이 자연스러움
 
             if valres[CONST.RVR] > 1000:
                 self.feedback.append('220') # 팔로우 스윙 과정에서 손목이 꺾임
@@ -384,7 +400,7 @@ class SwingAnalysis:
                     self.feedback.pop()
                     self.feedback.append('221') # 팔로우 스윙 과정에서 손목이 꺾임
             else:
-                self.feedback.append('502') # 임펙트 이후 손목이 꺾이지 않음
+                self.feedback.append('720') # 임펙트 이후 손목이 꺾이지 않음
 
         except Exception as e:
             return e

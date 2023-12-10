@@ -1,13 +1,29 @@
+class EmptyDataError(Exception):
+    def __init__(self, data, message="empty data"):
+        self.message = f"{message}, data: {data}"
+        super().__init__(self.message)
 
+class InvalidDataError(Exception):
+    def __init__(self, data, message="invalid data"):
+        self.message = f"{message}, data: {data}"
+        super().__init__(self.message)
 
-class FileNotFoundException(FileNotFoundError):
-    def __init__(self, file_url):
-        super().__init__(f"File not found: {file_url}")
-        self.file_url = file_url
+class EmptyValueError(Exception):
+    def __init__(self, value, message="empty value"):
+        self.message = f"{message}, data: {value}"
+        super().__init__(self.message)
 
-class InvalidFileError(ValueError):
-    def __init__(self, file_url, additional_info=""):
-        message = f"Invalid file: {file_url}. {additional_info}"
-        super().__init__(message)
-        self.file_url = file_url
-        self.additional_info = additional_info
+class InvalidValueError(Exception):
+    def __init__(self, value, message="invalid value"):
+        self.message = f"{message}, data: {value}"
+        super().__init__(self.message)
+
+class CutDataError(Exception):
+    def __init__(self, data, message="raise in def: cutData or simpleCutData"):
+        self.message = f"{message}, res_data: {data}"
+        super().__init__(self.message)
+
+class MethodOrderError(Exception):
+    def __init__(self, message="method interpret must be called after method analysis"):
+        self.message = f"{message}"
+        super().__init__(self.message)
