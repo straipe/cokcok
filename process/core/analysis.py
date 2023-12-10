@@ -281,6 +281,8 @@ class SwingAnalysis:
                 if (valres[CONST.ACCX] + valres[CONST.ACCY] + valres[CONST.ACCZ]) > 3:
                     self.feedback.pop()
                     self.feedback.append('001') # 준비 스윙 속도 부족
+            else:
+                self.feedback.append('200') # 백스윙 속도 적당
 
             if abs(valres[CONST.ACCX]) > 2 or abs(valres[CONST.ACCY]) > 2 or abs(valres[CONST.ACCZ]) > 2:
                 self.feedback.append('010') # 준비 스윙 궤적 이상
@@ -296,6 +298,8 @@ class SwingAnalysis:
                     if abs(valres[CONST.RVY]) > 1500:
                         self.feedback.pop()
                         self.feedback.append('031') # 010 준비 스윙 깊이 부족
+            else:
+                self.feedback.append('201') # 백스윙 궤적 올바름
             
             # 임펙트
             valres = {}
@@ -320,6 +324,8 @@ class SwingAnalysis:
                 if (valres[CONST.ACCX] + valres[CONST.ACCY] + valres[CONST.ACCZ]) > 5:
                     self.feedback.pop()
                     self.feedback.append('101') # 임펙트 스윙 속도 부족
+            else:
+                self.feedback.append('300') #임펙트 스윙 속도 적당
                 
             if abs(valres[CONST.RVP]) > 1000 or abs(valres[CONST.RVR]) > 1000 or abs(valres[CONST.RVY]) > 1000:
                 self.feedback.append('110') # 임펙트 스윙 손목 방향 잘못됨
@@ -332,6 +338,8 @@ class SwingAnalysis:
                     if abs(valres[CONST.RVP]) > 1500 or abs(valres[CONST.RVY]) > 1500:
                         self.feedback.pop()
                         self.feedback.append('131') # 110 임펙트 스윙 손목 회전 이상
+            else:
+                self.feedback.append('301') #임펙트 스윙 손목 회전 감지
             
             # 팔로스로우
             valres = {}
@@ -357,6 +365,8 @@ class SwingAnalysis:
                 if abs(valres[CONST.ACCX]) > 6 or abs(valres[CONST.ACCY]) > 6 or abs(valres[CONST.ACCZ]) > 12:
                     self.feedback.pop()
                     self.feedback.append('201') # 임펙트 이후 자세가 부자연스러움
+            else:
+                self.feedback.append('400') # 임펙트 이후 자세 안정
                 
             if valres[CONST.RVP] > 1000 and stmres[CONST.RVP] < 12:
                 self.feedback.append('210') # 손목회전이 민첩하지 않음
@@ -364,6 +374,8 @@ class SwingAnalysis:
                 if valres[CONST.RVP] > 1500:
                     self.feedback.pop()
                     self.feedback.append('211') # 손목회전이 민첩하지 않음
+            else:
+                self.feedback.append('401') # 임펙트 이후 손목회전이 자연스러움
 
             if valres[CONST.RVR] > 1000:
                 self.feedback.append('220') # 팔로우 스윙 과정에서 손목이 꺾임
@@ -371,6 +383,8 @@ class SwingAnalysis:
                 if valres[CONST.RVR] > 1500:
                     self.feedback.pop()
                     self.feedback.append('221') # 팔로우 스윙 과정에서 손목이 꺾임
+            else:
+                self.feedback.append('402') # 임펙트 이후 손목이 꺾이지 않음
 
         except Exception as e:
             return e
