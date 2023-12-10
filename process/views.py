@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import json
 import pandas as pd
 from accounts.models import Player
 from django.core.files.base import ContentFile
@@ -12,13 +13,15 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+from .core.analysis import SwingAnalysis
+from .core.classification import SwingClassification
 from .models import (
     Achievement,
     MatchRecord,
     Motion,
     PlayerAchievement
 )
-from .movenet import process_video
+#from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     MatchRecordSerializer,
@@ -45,14 +48,14 @@ class AchievementList(APIView):
             s_min=request.data.get('s_min')
             is_month_update=request.data.get('is_month_update')
             icon = request.data.get('icon')
+            unit = request.data.get('unit')
 
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO Achievement(achieve_nm,d_min,c_min,b_min,a_min,s_min,"\
-                    f"is_month_update,icon) "\
-                        f"VALUES ('{achieve_nm}',{d_min}, "\
+                    "INSERT INTO Achievement "\
+                        f"VALUES (NULL,'{achieve_nm}',{d_min}, "\
                         f"{c_min}, {b_min}, {a_min}, "\
-                        f"{s_min}, '{is_month_update}','{icon}');"
+                        f"{s_min}, '{is_month_update}','{icon}','{unit}');"
                 )
             return JsonResponse({"message":"업적을 생성하였습니다."})
         return JsonResponse({"message":"형식에 맞지 않은 요청입니다."})
@@ -61,17 +64,11 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     def get(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            match_id = request.query_params['match_id']
-            if match_id is not None:
-                matches = MatchRecord.objects.filter(player_token=token)
-                matches_paginated = self.paginate_queryset(matches,request)
-                serializer = MatchRecordSerializer(matches_paginated, many=True)
-                return self.get_paginated_response(serializer.data)
-            else:
-                match = MatchRecord.objects.filter(match_id=match_id)
-                serializer = MatchRecordSerializer(match, many=True)
-                return JsonResponse(serializer.data)
+        if len(player) != 0:
+            matches = MatchRecord.objects.filter(player_token=token)
+            matches_paginated = self.paginate_queryset(matches,request)
+            serializer = MatchRecordSerializer(matches_paginated, many=True)
+            return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
@@ -79,39 +76,56 @@ class MatchRecordList(APIView, LimitOffsetPagination):
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            start_date = request.data.get('start_date')
-            end_date = request.data.get('end_date')
-            duration = request.data.get('duration')
-            total_distance = request.data.get('total_distance')
-            total_energey_burned = request.data.get('total_energey_burned')
-            average_heart_rage = request.data.get('average_heart_rage')
-            my_score = request.data.get('my_score')
-            opponent_score = request.data.get('opponent_score')
-            score_history = request.data.get('score_history')
-            upload_watch = request.FILES['watch_file']
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            upload_watch.name = now + token
-            watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
-            watch_url = default_storage.url(watch_path)
-            watch_csv = pd.read_csv(upload_watch)
-            #TODO: 경기 중 측정된 IMU센서 데이터(csv)를 처리하는 로직 구현.
+        print(request.data)
+        if len(player) != 0:
+            req_json = request.data.get('metadata_file',None)
+            if req_json is not None:
+                file_content = req_json.read().decode('utf-8')
+                print(file_content)
+                print(json.loads(file_content))
+                request.data = json.loads(file_content)
+                start_date = request.data.get('start_date')
+                end_date = request.data.get('end_date')
+                duration = request.data.get('duration')
+                total_distance = request.data.get('total_distance')
+                total_energy_burned = request.data.get('total_energy_burned')
+                average_heart_rate = request.data.get('average_heart_rate')
+                my_score = request.data.get('my_score')
+                opponent_score = request.data.get('opponent_score')
+                score_history = request.data.get('score_history')
+            else:
+                return JsonResponse({"message":"Json파일을 보내주세요."})
 
+            upload_watch = request.data.get('watch_file',None)
+            if upload_watch is not None:
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                upload_watch.name = now + '_' + token
+                watch_path = default_storage.save(f'match_watch/{upload_watch.name}', upload_watch)
+                watch_url = default_storage.url(watch_path)
+                upload_watch.seek(0)
+                watch_csv = pd.read_csv(upload_watch)
+                swing_classification = SwingClassification(watch_csv)
+                swing_classification.classification()
+                swing_analysis_data = swing_classification.classification_result
+                print(swing_analysis_data)
+            else:
+                watch_url = ""
             # 12개의 스윙을 JSON 데이터로 반환
-            motion_json = {'fo':10,'fu':3,'fs':8,'bo':3,'bu':6} #예시 반환 데이터
-            fo = motion_json['fo']
-            fu = motion_json['fu']
-            fs = motion_json['fs']
-            bo = motion_json['bo']
-            bu = motion_json['bu']
-            total_swing = fo+fu+fs+bo+bu
+            motion_dict = {'bd':0,'bn':0,'bh':0,'bu':0,'fd':0,'fp':0,
+                           'fn':0,'fh':0,'fs':0,'fu':0,'ls':0,'ss':0}
+            for key in motion_dict.keys():
+                pass
+            # API 테스트용 더미 데이터
+            bd=10;bn=3;bh=8;bu=3;fd=6;fp=2;fn=3;fh=5;fs=2;fu=1;ls=2;ss=5
+            total_swing = bd+bn+bh+bu+fd+fp+fn+fh+fs+fu+ls+ss
             player_token = token
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"INSERT INTO Match_Record VALUES (NULL, '{start_date}',"\
-                    f"'{end_date}','{duration}','{total_distance}','{total_energey_burned}',"\
-                    f"'{average_heart_rage}','{my_score}',{opponent_score},{score_history},"\
-                    f"{fo},{fu},{bo},{bu},{fs},'{watch_url}','{player_token}');"
+                    f"'{end_date}','{duration}','{total_distance}','{total_energy_burned}',"\
+                    f"'{average_heart_rate}','{my_score}',{opponent_score},{score_history},"\
+                    f"{bd},{bn},{bh},{bu},{fd},{fp},{fn},{fh},{fs},{fu},{ls},{ss},"\
+                    f"'{watch_url}','{player_token}');"
                 )
                 #업적1 스윙 횟수 누적치 업데이트
                 cursor.execute(
@@ -120,7 +134,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 )
                 #업적2 하이클리어 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{fo} "\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{fh} "\
                     f"WHERE achieve_id=2 and player_token='{token}';"
                 )
                 #업적3 경기 횟수 누적치 업데이트
@@ -135,7 +149,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 )
                 #업적5 소모칼로리 누적치 업데이트
                 cursor.execute(
-                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energey_burned}"\
+                    f"UPDATE Player_Achievement SET cumulative_val=cumulative_val+{total_energy_burned}"\
                     f"WHERE achieve_id=5 and player_token='{token}';"
                 )
 
@@ -215,39 +229,45 @@ class MatchRecordList(APIView, LimitOffsetPagination):
             response_data['end_date'] = end_date
             response_data['duration'] = duration
             response_data['total_distance'] = total_distance
-            response_data['total_energey_burned'] = total_energey_burned
-            response_data['average_heart_rage'] = average_heart_rage
+            response_data['total_energy_burned'] = total_energy_burned
+            response_data['average_heart_rate'] = average_heart_rate
             response_data['my_score'] = my_score
             response_data['opponent_score'] = opponent_score
             response_data['score_history'] = score_history
-            response_data['forehand_overarm'] = fo
-            response_data['forehand_underarm'] = fu
-            response_data['backhand_overarm'] = bo
-            response_data['backhand_underarm'] = bu
-            response_data['forehand_smash'] = fs
+            response_data['back_drive'] = bd
+            response_data['back_hairpin'] = bn
+            response_data['back_high'] = bh
+            response_data['back_under'] = bu
+            response_data['fore_drive'] = fd
+            response_data['fore_drop'] = fp
+            response_data['fore_hairpin'] = fn
+            response_data['fore_high'] = fh
+            response_data['fore_smash'] = fs
+            response_data['fore_under'] = fu
+            response_data['long_service'] = ls
+            response_data['short_service'] = ss
             response_data['watch_url'] = watch_url
             response_data['player_token'] = player_token
-
             return JsonResponse(response_data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
 
     def delete(self, request):
         token = get_token(request)
-        match_id = request.query_params['match_id']
-        if match_id is None:
+        match_id = request.data.get('match_id',None)
+        if match_id is not None:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"delete from Match_Record where match_id='{match_id}' and player_token='{token}';"
+                )
+            return JsonResponse({"message":"삭제하였습니다."})
+        else:
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"delete from Match_Record where player_token='{token}';"
                 )
             return JsonResponse({"message":"초기화하였습니다."})
-        else:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    f"delete from Match_Record where match_id='{match_id}';"
-                )
-            return JsonResponse({"message":"삭제하였습니다."})
-    
+            
     def get_limit(self, request):
         if self.limit_query_param:
             with contextlib.suppress(KeyError, ValueError):
@@ -266,19 +286,13 @@ class MatchRecordList(APIView, LimitOffsetPagination):
         except (KeyError, ValueError):
             return 0
 
-    def get_paginated_response(self, data):
-        return Response({
-            'next': self.get_next_link(),
-            'results': data
-        })
-
 class PlayerAchievementList(APIView):
     def get(self,request):
         token = get_token(request)
         clear = request.query_params['clear']
         player = Player.objects.filter(player_token = token)
-        if player is not None:
-            if clear==0:
+        if len(player) != 0:
+            if int(clear)==0:
                 player_achieve = PlayerAchievement.objects.filter(player_token = token)
                 serializer = PlayerAchievementSerializer(player_achieve, many=True)
             else:
@@ -287,7 +301,7 @@ class PlayerAchievementList(APIView):
                                                                     .order_by('-last_achieve_date')\
                                                                     [:5]
                 serializer = PlayerAchievementSerializer(player_achieve, many=True)
-            return JsonResponse(serializer.data)
+            return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
 
@@ -295,71 +309,87 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
     def get(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            motion_id = request.query_params['motion_id']
-            if motion_id is not None:
+        if len(player) != 0:
+            try:
+                motion_id = request.query_params['motion_id']
+                motion = Motion.objects.filter(motion_id=motion_id)
+                serializer = MotionSerializer(motion, many=True)
+                return Response(serializer.data)
+            except MultiValueDictKeyError:
                 motions = Motion.objects.filter(player_token=token)
                 motions_paginated = self.paginate_queryset(motions,request)
                 serializer = MotionSerializer(motions_paginated, many=True)
-                return self.get_paginated_response(serializer.data)
-            else:
-                motion = Motion.objects.filter(motion_id=motion_id)
-                serializer = MotionSerializer(motion, many=True)
-                return JsonResponse(serializer.data)
+                return Response(serializer.data)
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
     
     def post(self, request):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
+        if len(player) != 0:
             error_num = 0
             video_url =""
             watch_url =""
-            try:
-                upload_video = request.FILES['video_file']
+            upload_video = request.data.get('video_file',None)
+            if upload_video is not None:
                 now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                upload_video.name = now + token
+                upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                player_pose = process_video(video_url)
-                pose_strength = ""
-                pose_weakness = ""
-                if(player_pose[0]<=0.37):
-                    pose_weakness += "상체 회전이 부족합니다.\n"
-                if(player_pose[0]>0.37):
-                    pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
-                if(player_pose[1]<160):
-                    pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
-                if(player_pose[1]>=160):
-                    pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
-                if(player_pose[2]<160):
-                    pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
-                if(player_pose[2]>=160):
-                    pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
-            except MultiValueDictKeyError:
+                #player_pose = process_video(video_url)
+                player_pose = [1,2,3]
+                if isinstance(player_pose,JsonResponse):
+                    return player_pose
+                else:
+                    pose_strength = ""
+                    pose_weakness = ""
+                    pose_score = 0
+                    if(player_pose[0]<=0.37):
+                        pose_weakness += "상체 회전이 부족합니다.\n"
+                    if(player_pose[0]>0.37):
+                        pose_strength += "적절히 상체를 회전시키고 있습니다.\n"
+                        pose_score += 20
+                    if(player_pose[1]<160):
+                        pose_weakness += "타구 시에 팔을 좀 더 올려야합니다.\n"
+                    if(player_pose[1]>=160):
+                        pose_strength += "팔을 적절히 올려 타구하고 있습니다.\n"
+                        pose_score += 40
+                    if(player_pose[2]<160):
+                        pose_weakness += "타구 시에 팔을 좀 더 펴야합니다.\n"
+                    if(player_pose[2]>=160):
+                        pose_strength += "팔을 적절히 펴 타구하고 있습니다.\n"
+                        pose_score += 40
+            else:
                 error_num = error_num + 1
             
-            try:
-                upload_watch = request.FILES['watch_file']
-                upload_watch.name = now + token
+            upload_watch = request.data.get('watch_file',None)
+            if upload_watch is not None:
+                upload_watch.name = now + '_' + token[1] + '.csv'
                 watch_path = default_storage.save(f'watches/{upload_watch.name}', upload_watch)
                 watch_url = default_storage.url(watch_path)
+                upload_watch.seek(0)
                 watch_csv = pd.read_csv(upload_watch)
-                # TODO: upload_watch 데이터를 처리할 로직 작성
+                #스윙 분석 실시
+                swing_analysis = SwingAnalysis(watch_csv)
+                swing_analysis.analysis('fh')
+                #테스트 필요
+                #print(swing_analysis.max)
+                print(swing_analysis.score)
                 wrist_strength = ""
                 wrist_weakness = ""
-            except MultiValueDictKeyError:
+            else:
                 error_num = error_num + 1
+
             if(error_num<2):
-                player_token = request.data.get('player_token')
+                player_token = token
                 record_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                swing_score = 0
+                wrist_score = max((30000 - swing_analysis.score)/300,0)
+                swing_score = int((wrist_score + pose_score) / 2)
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO Motion VALUES (NULL, '{video_url}',"\
                         f"'{watch_url}','{pose_strength}','{wrist_strength}','{pose_weakness}',"\
-                        f"'{wrist_weakness}','{player_token}',{record_date},{swing_score});"\
+                        f"'{wrist_weakness}','{player_token}','{record_date}',{swing_score});"\
                     )
                 response_data = {}
                 response_data['video_url'] = video_url
@@ -371,8 +401,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 response_data['player_token'] = player_token
                 response_data['record_date'] = record_date
                 response_data['swing_score'] = swing_score
-
-                return JsonResponse(response_data)
+                return Response(response_data)
             else:
                 return JsonResponse({"message":"처리할 데이터가 없습니다."})
         else:
@@ -381,20 +410,20 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
     def delete(self, request, format=None):
         token = get_token(request)
         player = Player.objects.filter(player_token=token)
-        if player is not None:
-            motion_id = request.query_params['motion_id']
+        if len(player) != 0:
+            motion_id = request.data.get('motion_id',None)
             if motion_id is not None:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"delete from Motion where motion_id={motion_id} and player_token='{token}';"
+                    )
+                return JsonResponse({"message":"삭제하였습니다."})
+            else:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"delete from Motion where player_token='{token}';"
                     )
                 return JsonResponse({"message":"스윙 데이터를 초기화하였습니다."})
-            else:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        f"delete from Motion where motion_id={motion_id};"
-                    )
-                return JsonResponse({"message":"삭제하였습니다."})
         else:
             return JsonResponse({"message":"회원가입을 해주세요."})
         
@@ -416,12 +445,6 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
         except (KeyError, ValueError):
             return 0
 
-    def get_paginated_response(self, data):
-        return Response({
-            'next': self.get_next_link(),
-            'results': data
-        })
-
 def _positive_int(integer_string, strict=False, cutoff=None):
     """
     Cast a string to a strictly positive integer.
@@ -435,7 +458,7 @@ def _positive_int(integer_string, strict=False, cutoff=None):
 
 def get_token(request):
     try:
-        return request.query_params['token']
+        return request.META.get('HTTP_AUTHORIZATION').split()[1]
         
     except (KeyError, ValueError):
         return None
