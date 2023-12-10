@@ -535,7 +535,18 @@ def find_key_by_value(dictionary, target_value):
     for key, value in dictionary.items():
         if value == target_value:
             return key
-        
+
+# 사용자 감지 함수
+def is_human(keypoints_with_scores,keypoints_threshhold=0.11):
+    no_keypoint_count = 0
+    for i in range(17):
+        if keypoints_with_scores[0,0,i,2] < keypoints_threshhold:
+          no_keypoint_count += 1
+    if no_keypoint_count < 13:
+       return 1
+    else:
+       return 0
+
 def process_video(video_path):
     
     cap = cv2.VideoCapture(video_path)
@@ -558,11 +569,13 @@ def process_video(video_path):
     hip_lengths = []
     elbow_angles = []
     # bar = display(progress(0, num_frames-1), display_id=True)
+    human_count = 0
     impact_index = 0
     for frame_idx in range(num_frames):
         keypoints_with_scores = run_inference(
             movenet, image[frame_idx, :, :, :], crop_region,
             crop_size=[input_size, input_size])
+        human_count += is_human(keypoints_with_scores)
         keypoints_with_scores_dict["x"][frame_idx] = (keypoints_with_scores[0,0,:,1]).tolist() #image_width* 삭제
         keypoints_with_scores_dict["y"][frame_idx] = (keypoints_with_scores[0,0,:,0]).tolist() #image_height* 삭제
         if keypoints_with_scores_dict["y"][frame_idx][10] < keypoints_with_scores_dict["y"][impact_index][10]: #Impact 당시 오른 손목이 최고점을 찍을 것이기에 이 당시의 프레임을 추출
@@ -579,6 +592,12 @@ def process_video(video_path):
           keypoints_with_scores, image_height, image_width)
     # bar.update(progress(frame_idx, num_frames-1))
 
+    # 사용자 인식 여부 확인
+    if human_count == 0:
+      return JsonResponse({'message':"사용자가 인식되지 않았습니다."})
+    elif human_count < 30:
+      return JsonResponse({'message':"스윙을 1초 이상 촬영해주시기 바랍니다."})
+    
     # 어깨 각도의 최댓값
     output_shoulder_angles_max = 0
     for i in range(len(output_shoulder_angles)):
@@ -596,8 +615,7 @@ def process_video(video_path):
       for i in range(impact_index-20,impact_index+10): #스윙 시에 몸통이 회전하는 소요시간 0.55초 이내
           hip_lengths_preprocess.append(round(hip_lengths[i]/hip_lengths_max,5))
     except IndexError:
-      error_message = "스윙을 조금 천천히 해주시길 바랍니다."
-      return JsonResponse({'error':error_message})
+      return JsonResponse({'message':"스윙 이후 동작까지 포함되도록 촬영 시간을 늘려주시기 바랍니다."})
 
     # 골반 너비의 최솟값(전처리 후)
     hip_lengths_preprocess_min = hip_lengths_preprocess[0]
@@ -617,8 +635,7 @@ def process_video(video_path):
       for i in range(impact_index-10,impact_index+10):
           elbow_angles_preprocess.append(elbow_angles[i])
     except IndexError:
-      error_message = "스윙을 조금 천천히 해주시길 바랍니다."
-      return JsonResponse({'error':error_message})
+      return JsonResponse({'message':"스윙을 1초 이상 촬영해주시기 바랍니다."})
 
     # 팔꿈치 각도의 최댓값
     elbow_angles_max = 0

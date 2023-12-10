@@ -28,19 +28,8 @@ class MatchRecord(models.Model):
     my_score = models.IntegerField(db_comment='내점수')
     opponent_score = models.IntegerField(db_comment='상대점수')
     score_history = models.CharField(max_length=100, db_comment='히스토리')
-    back_drive = models.IntegerField(blank=True, null=True, db_comment='bd 횟수')
-    back_hairpin = models.IntegerField(blank=True, null=True, db_comment='bn 횟수')
-    back_high = models.IntegerField(blank=True, null=True, db_comment='bh 횟수')
-    back_under = models.IntegerField(blank=True, null=True, db_comment='bu 횟수')
-    fore_drive = models.IntegerField(blank=True, null=True, db_comment='fd 횟수')
-    fore_drop = models.IntegerField(blank=True, null=True, db_comment='fp 횟수')
-    fore_hairpin = models.IntegerField(blank=True, null=True, db_comment='fn 횟수')
-    fore_high = models.IntegerField(blank=True, null=True, db_comment='fh 횟수')
-    fore_smash = models.IntegerField(blank=True, null=True, db_comment='fs 횟수')
-    fore_under = models.IntegerField(blank=True, null=True, db_comment='fu 횟수')
-    long_service = models.IntegerField(blank=True, null=True, db_comment='ls 횟수')
-    short_service = models.IntegerField(blank=True, null=True, db_comment='ss 횟수')
     watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 데이터 URL')
+    swing_average_score = models.FloatField(db_comment='스윙평균점수')
     player_token = models.CharField(max_length=50)
 
     class Meta:
@@ -81,3 +70,14 @@ class PlayerAchievement(models.Model):
     class Meta:
         managed = False
         db_table = 'Player_Achievement'
+
+class SwingScore(models.Model):
+    swing_score_id = models.AutoField(primary_key=True, db_comment='스윙스코어 아이디')
+    swing_id = models.IntegerField(db_comment='스윙 아이디')
+    score = models.IntegerField(db_comment='스윙 점수')
+    swing_type = models.CharField(max_length=2)
+    match_id = models.IntegerField(db_comment='경기 아이디')
+
+    class Meta:
+        managed = False
+        db_table = 'Swing_Score'

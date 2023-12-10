@@ -314,9 +314,9 @@ class SwingClassification:
             df = self.raw_data.iloc[self.X_y.at[i, CONST.CLASS_START]:self.X_y.at[i, CONST.CLASS_END], :].copy()
             find = analysis.SwingAnalysis(df.reset_index(drop=True))
             find.analysis(self.classification_result[i], False)
+            swing_score = max((3-find.score)*100/3,0)
+            res_classes.append((self.classification_result[i],swing_score))
 
-            res_classes.append(find)
-        
         self.swing_classification_analysis = res_classes
 
         return res_classes

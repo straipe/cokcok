@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'storages',
     'rest_framework',
     'drf_yasg',
+    'django_crontab',
 ]
 
 
@@ -100,6 +101,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+]
+
+CRONJOBS = [
+    ('* * * * *', 'process.cron.hello_every_minute', '>> /tmp/log/hello.log'),
+    ('0 0 1 * *', 'process.cron.update_every_month', '>> /tmp/log/update_achieve.log'),
 ]
 
 LANGUAGE_CODE = 'en-us'
