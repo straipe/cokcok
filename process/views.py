@@ -470,7 +470,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 swing_feedback_dict = CONST.SWING_INTERPRET_RES
 
                 for key in swing_analysis.feedback:
-                    if int(key)>300:
+                    if int(key)>=500:
                         wrist_strength += swing_feedback_dict[key]+"\n"
                     else:
                         wrist_weakness += swing_feedback_dict[key]+"\n"
@@ -498,6 +498,10 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 response_data['player_token'] = player_token
                 response_data['record_date'] = record_date
                 response_data['swing_score'] = swing_score
+                response_data['res'] = swing_analysis.res
+                response_data['res_prepare'] = swing_analysis.res_prepare
+                response_data['res_impact'] = swing_analysis.res_impact
+                response_data['res_follow'] = swing_analysis.res_follow
                 response_data['wrist_max_acc'] = swing_analysis.res_max
                 return Response(response_data)
             else:
