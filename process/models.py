@@ -5,12 +5,21 @@ class Motion(models.Model):
     video_url = models.CharField(max_length=200, blank=True, null=True, db_comment='영상 storage URL')
     watch_url = models.CharField(max_length=200, blank=True, null=True, db_comment='워치 storage URL')
     pose_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 장점')
-    wrist_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 장점')
     pose_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='자세 단점')
-    wrist_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='손목 활용 단점')
+    wrist_prepare_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='백스윙 손목 활용 장점')
+    wrist_impact_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='임팩트 손목 활용 장점')
+    wrist_follow_strength = models.CharField(max_length=100, blank=True, null=True, db_comment='팔로우 손목 활용 장점')
+    wrist_prepare_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='백스윙 손목 활용 단점')
+    wrist_impact_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='임팩트 손목 활용 단점')
+    wrist_follow_weakness = models.CharField(max_length=100, blank=True, null=True, db_comment='팔로우 손목 활용 단점')
     player_token = models.CharField(max_length=50)
     record_date = models.DateTimeField(db_comment='측정 날짜')
     swing_score = models.IntegerField(db_comment='스윙 총점')
+    res = models.CharField(max_length=100, blank=True, null=True, db_comment='오차 점수 리스트')
+    res_prepare = models.IntegerField(db_comment='백스윙 점수')
+    res_impact = models.IntegerField(db_comment='임팩트 점수')
+    res_follow = models.IntegerField(db_comment='팔로우 점수')
+    wrist_max_acc = models.FloatField(db_comment='최대 손목 가속도')
 
     class Meta:
         managed = False

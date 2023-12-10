@@ -167,7 +167,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                            'x':[0,0]}
             
             # motion_dict에 각 스트로크에 대한 횟수와 총점 저장
-            print(swing_list)
+            #print(swing_list)
             for key in motion_dict.keys():
                 for swing in swing_list:
                     if key == swing[0]:
@@ -403,7 +403,7 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 motion_id = request.query_params['motion_id']
                 motion = Motion.objects.filter(motion_id=motion_id)
                 serializer = MotionSerializer(motion, many=True)
-                return Response(serializer.data)
+                return Response(serializer.data[0])
             except MultiValueDictKeyError:
                 motions = Motion.objects.filter(player_token=token)
                 motions_paginated = self.paginate_queryset(motions,request)
@@ -462,18 +462,34 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 swing_analysis = SwingAnalysis(watch_csv)
                 swing_analysis.analysis('fh')
                 #테스트 필요
-                print(swing_analysis.score)
+                #print(swing_analysis.score)
                 swing_analysis.interpret()
-                wrist_strength = ""
-                wrist_weakness = ""
+                res_score_list = ""
+                for res_score in swing_analysis.res:
+                    res_score_list += str(error_to_score(res_score))+" "
                 #스윙 피드백 리스트
                 swing_feedback_dict = CONST.SWING_INTERPRET_RES
-
+                wrist_prepare_strength=""
+                wrist_impact_strength=""
+                wrist_follow_strength=""
+                wrist_prepare_weakness=""
+                wrist_impact_weakness=""
+                wrist_follow_weakness=""
                 for key in swing_analysis.feedback:
                     if int(key)>=500:
-                        wrist_strength += swing_feedback_dict[key]+"\n"
+                        if int(key)<600:
+                            wrist_prepare_strength += swing_feedback_dict[key]+"\n"
+                        elif int(key)<700:
+                            wrist_impact_strength += swing_feedback_dict[key]+"\n"
+                        elif int(key)<800:
+                            wrist_follow_strength += swing_feedback_dict[key]+"\n"
                     else:
-                        wrist_weakness += swing_feedback_dict[key]+"\n"
+                        if int(key)<100:
+                            wrist_prepare_weakness += swing_feedback_dict[key]+"\n"
+                        elif int(key)<200:
+                            wrist_impact_weakness += swing_feedback_dict[key]+"\n"
+                        elif int(key)<300:
+                            wrist_follow_weakness += swing_feedback_dict[key]+"\n"
             else:
                 error_num = error_num + 1
 
@@ -482,28 +498,22 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 record_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 wrist_score = max((3 - swing_analysis.score)*100/3,0)
                 swing_score = int((wrist_score + pose_score) / 2)
+                res_prepare = error_to_score(swing_analysis.res_prepare)
+                res_impact = error_to_score(swing_analysis.res_impact)
+                res_follow = error_to_score(swing_analysis.res_follow)
+                wrist_max_acc = swing_analysis.res_max
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO Motion VALUES (NULL, '{video_url}',"\
-                        f"'{watch_url}','{pose_strength}','{wrist_strength}','{pose_weakness}',"\
-                        f"'{wrist_weakness}','{player_token}','{record_date}',{swing_score});"\
+                        f"'{watch_url}','{pose_strength}','{pose_weakness}','{wrist_prepare_strength}',"\
+                        f"'{wrist_impact_strength}','{wrist_follow_strength}','{wrist_prepare_weakness}',"\
+                        f"'{wrist_impact_weakness}','{wrist_follow_weakness}','{player_token}','{record_date}',"\
+                        f"{swing_score},'{res_score_list}',{res_prepare},{res_impact},{res_follow},"\
+                        f"{wrist_max_acc});"
                     )
-                response_data = {}
-                response_data['video_url'] = video_url
-                response_data['watch_url'] = watch_url
-                response_data['pose_strength'] = pose_strength
-                response_data['wrist_strength'] = wrist_strength
-                response_data['pose_weakness'] = pose_weakness
-                response_data['wrist_weakness'] = wrist_weakness
-                response_data['player_token'] = player_token
-                response_data['record_date'] = record_date
-                response_data['swing_score'] = swing_score
-                response_data['res'] = swing_analysis.res
-                response_data['res_prepare'] = swing_analysis.res_prepare
-                response_data['res_impact'] = swing_analysis.res_impact
-                response_data['res_follow'] = swing_analysis.res_follow
-                response_data['wrist_max_acc'] = swing_analysis.res_max
-                return Response(response_data)
+                upload_wrist = Motion.objects.filter(player_token=token,record_date=record_date)
+                serializer = MotionSerializer(upload_wrist,many=True)
+                return Response(serializer.data[0])
             else:
                 return JsonResponse({"message":"처리할 데이터가 없습니다."})
         else:
@@ -564,3 +574,6 @@ def get_token(request):
         
     except (KeyError, ValueError):
         return None
+    
+def error_to_score(error):
+    return round(max((3-error)*100/3,0))
