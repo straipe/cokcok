@@ -530,7 +530,7 @@ def is_human(keypoints_with_scores,keypoints_threshhold=0.11):
     for i in range(17):
         if keypoints_with_scores[0,0,i,2] < keypoints_threshhold:
           no_keypoint_count += 1
-    if no_keypoint_count < 13:
+    if no_keypoint_count < 11:
        return 1
     else:
        return 0
