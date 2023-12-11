@@ -26,7 +26,7 @@ from .models import (
     PlayerAchievement,
     SwingScore,
 )
-from .movenet import process_video
+#from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     MatchRecordSerializer,
@@ -91,7 +91,7 @@ class AchievementList(APIView):
 class MatchRecordList(APIView, LimitOffsetPagination):
     def get(self, request):
         token = get_token(request)
-        #token = '6f5srp1JpUMdRw33TsKW0sc4lfX2'
+        #token = 'npjRNK7RSqdNHwQ3dSiUPiY4Mi02'
         player = Player.objects.filter(player_token=token)
         if len(player) != 0:
             matches = MatchRecord.objects.filter(player_token=token)
@@ -137,10 +137,15 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 my_score = int(json_data.get('myScore'))
                 opponent_score = int(json_data.get('opponentScore'))
                 score_history = json_data.get('scoreHistory')
+                equal_match = MatchRecord.objects.filter(player_token=token,start_date=start_date)
+                if len(equal_match) !=0:
+                    return Response({"message":"이미 존재하는 경기 기록입니다."})
+
             else:
                 return JsonResponse({"message":"Json파일을 보내주세요."})
 
             upload_watch = request.data.get('watch_file',None)
+            swing_list = []
             if upload_watch is not None:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 upload_watch.name = now + '_' + token
@@ -148,7 +153,6 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 watch_url = default_storage.url(watch_path)
                 upload_watch.seek(0)
                 watch_csv = pd.read_csv(upload_watch)
-                swing_list = []
                 try:
                     swing_classification = SwingClassification(watch_csv)
                     swing_classification.classification()
@@ -161,6 +165,7 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 watch_url = ""
             if watch_url is None:
                 watch_url = ""
+            
             # 12개의 스윙을 JSON 데이터로 반환
             motion_dict = {'bd':[0,0],'bn':[0,0],'bh':[0,0],'bu':[0,0],'fd':[0,0],'fp':[0,0],
                            'fn':[0,0],'fh':[0,0],'fs':[0,0],'fu':[0,0],'ls':[0,0],'ss':[0,0],
@@ -278,8 +283,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                 #등급 업데이트
                 for i in range(1,len(total_achieve_num)+1):
                     cursor.execute(
-                        f"SELECT cumulative_val FROM Player_Achievement WHERE achieve_id={i} and "\
-                        f"player_token='{token}';"
+                        f"SELECT cumulative_val FROM Player_Achievement WHERE (achieve_id={i} and "\
+                        f"player_token='{token}') and (achieve_year_month is null or achieve_year_month='{now_01}');"
                     )
                     cumulative_val = cursor.fetchone()
                     cursor.execute(
@@ -298,7 +303,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                             cursor.execute(
                                 f"UPDATE Player_Achievement SET d_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
-                                f"WHERE achieve_id={i} and player_token='{token}';"
+                                f"WHERE (achieve_id={i} and player_token='{token}') and "\
+                                f"(achieve_year_month is null or achieve_year_month='{now_01}');"
                             )
 
                     # C등급 달성여부 확인
@@ -307,7 +313,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                             cursor.execute(
                                 f"UPDATE Player_Achievement SET c_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
-                                f"WHERE achieve_id={i} and player_token='{token}';"
+                                f"WHERE (achieve_id={i} and player_token='{token}') and "\
+                                f"(achieve_year_month is null or achieve_year_month='{now_01}');"
                             )
 
                     # B등급 달성여부 확인
@@ -316,7 +323,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                             cursor.execute(
                                 f"UPDATE Player_Achievement SET b_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
-                                f"WHERE achieve_id={i} and player_token='{token}';"
+                                f"WHERE (achieve_id={i} and player_token='{token}') and "\
+                                f"(achieve_year_month is null or achieve_year_month='{now_01}');"
                             )
 
                     # A등급 달성여부 확인
@@ -325,7 +333,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                             cursor.execute(
                                 f"UPDATE Player_Achievement SET a_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
-                                f"WHERE achieve_id={i} and player_token='{token}';"
+                                f"WHERE (achieve_id={i} and player_token='{token}') and "\
+                                f"(achieve_year_month is null or achieve_year_month='{now_01}');"
                             )
 
                     # S등급 달성여부 확인
@@ -334,7 +343,8 @@ class MatchRecordList(APIView, LimitOffsetPagination):
                             cursor.execute(
                                 f"UPDATE Player_Achievement SET s_achieve_date='{now}', "\
                                 f"last_achieve_date='{now}' "\
-                                f"WHERE achieve_id={i} and player_token='{token}';"
+                                f"WHERE (achieve_id={i} and player_token='{token}') and "\
+                                f"(achieve_year_month is null or achieve_year_month='{now_01}');"
                             )
             return JsonResponse({"message":"경기 기록이 성공적으로 업로드 되었습니다."})
         else:
@@ -425,8 +435,8 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                player_pose = process_video(video_url)
-                #player_pose = [1,2,3]
+                #player_pose = process_video(video_url)
+                player_pose = [1,2,3]
                 if isinstance(player_pose,JsonResponse):
                     return player_pose
                 else:
