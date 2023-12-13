@@ -26,7 +26,7 @@ from .models import (
     PlayerAchievement,
     SwingScore,
 )
-#from .movenet import process_video
+from .movenet import process_video
 from .serializers import (
     AchievementSerializer,
     MatchRecordSerializer,
@@ -435,8 +435,8 @@ class PlayerMotionList(APIView,LimitOffsetPagination):
                 upload_video.name = now + '_' + token[1] + '.mp4'
                 video_path = default_storage.save(f'videos/{upload_video.name}', upload_video)
                 video_url = default_storage.url(video_path)
-                #player_pose = process_video(video_url)
-                player_pose = [1,2,3]
+                player_pose = process_video(video_url)
+                #player_pose = [1,2,3]
                 if isinstance(player_pose,JsonResponse):
                     return player_pose
                 else:
