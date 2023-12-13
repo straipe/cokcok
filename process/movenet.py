@@ -525,7 +525,7 @@ def find_key_by_value(dictionary, target_value):
             return key
 
 # 사용자 감지 함수
-def is_human(keypoints_with_scores,keypoints_threshhold=0.11):
+def is_human(keypoints_with_scores,keypoints_threshhold=0.3):
     no_keypoint_count = 0
     for i in range(17):
         if keypoints_with_scores[0,0,i,2] < keypoints_threshhold:
