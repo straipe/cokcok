@@ -1,10 +1,10 @@
-# Django+MySQL+MoveNet
-
-
-
-
+# Django+MySQL+AWS+MoveNet
+ 
+ 
+ 
+ 
   
-## Django
+## 1. Django
 
 
 
@@ -74,7 +74,7 @@
 
 
 
-## MySQL
+## 2. MySQL
 
 
 
@@ -93,7 +93,7 @@
 
 
 
-## Amazon Web Services
+## 3. AWS(Amazon Web Services)
 
 
 
@@ -104,7 +104,7 @@
 
 
 
-## MoveNet
+## 4. MoveNet
 
 
 
