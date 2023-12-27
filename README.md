@@ -2,7 +2,7 @@
 
 
 
-- Directory Structure
+- **Directory Structure**
 
   ```
   📦badminton
@@ -28,43 +28,43 @@
 
   📂**accounts**
 
-- 회원가입, 마이페이지 조회와 같은 계정 관련 기능을 구현하기 위한 app이다.
+  - 회원가입, 마이페이지 조회와 같은 계정 관련 기능을 구현하기 위한 app이다.
 
-  ┃ ┣  📜models.py
+  ┃ ┣  📜**models.py**
 
-- Player 모델은 회원 정보를 처리하기 위해 구현하였다. 이 모델은 DB의 Player table에 대응된다.
+  - Player 모델은 회원 정보를 처리하기 위해 구현하였다. 이 모델은 DB의 Player table에 대응된다.
 
-  ┃ ┣ 📜views.py
+  ┃ ┣ 📜**views.py**
 
-- APIView를 상속받은 클래스 기반 뷰 PlayerInfo를 구현하였다. GET, POST, PUT, DELETE 메서드를 재정의하였으며, 특히 POST 메서드의 경우 회원 정보를 DB에 저장할 때 회원과 업적 간의 관계에 대한 정보를 추가로 저장하게끔 하였다.
+  - APIView를 상속받은 클래스 기반 뷰 PlayerInfo를 구현하였다. GET, POST, PUT, DELETE 메서드를 재정의하였으며, 특히 POST 메서드의 경우 회원 정보를 DB에 저장할 때 회원과 업적 간의 관계에 대한 정보를 추가로 저장하게끔 하였다.
 
 
 
   📂**process**
 
-- 스윙분석&경기분석을 위한 Django app이다.
+  - 스윙분석&경기분석을 위한 Django app이다.
 
-   ┃ ┣ 📜movenet.py
+   ┃ ┣ 📜**movenet.py**
 
-- movenet 모델을 로드하고 영상 데이터를 분석하여 원하는 데이터를 추출하는 로직이 구현되어 있다.
+  - movenet 모델을 로드하고 영상 데이터를 분석하여 원하는 데이터를 추출하는 로직이 구현되어 있다.
 
-   ┃ ┣ 📂core
+   ┃ ┣ 📂**core**
 
-- data 폴더와 analysis.py, classification.py가 담겨있다. data 폴더는 스윙분석&경기분석에 사용할 전문가 데이터가 담겨있으며, analysis.py는 하이클리어 스윙을 분석하는 알고리즘이, classification.py는 경기 중 발생한 스윙을 분류하는 KNN 알고리즘이 담겨있다.
+  - data 폴더와 analysis.py, classification.py가 담겨있다. data 폴더는 스윙분석&경기분석에 사용할 전문가 데이터가 담겨있으며, analysis.py는 하이클리어 스윙을 분석하는 알고리즘이, classification.py는 경기 중 발생한 스윙을 분류하는 KNN 알고리즘이 담겨있다.
 
-   ┃ ┣ 📜models.py
+   ┃ ┣ 📜**models.py**
 
-- Motion 모델은 스윙 분석 데이터를 처리하기 위해 구현하였으며, MatchRecord는 경기 기록 데이터를, Achievement는 업적 데이터를, SwingScore는 한 경기에 대한 유저의 각 스윙 별 점수 데이터를 처리하기 위해 구현하였다. PlayerAchievement는 유저-업적의 M:N 관계를 해소하기 위해 구현하였다.
+  - Motion 모델은 스윙 분석 데이터를 처리하기 위해 구현하였으며, MatchRecord는 경기 기록 데이터를, Achievement는 업적 데이터를, SwingScore는 한 경기에 대한 유저의 각 스윙 별 점수 데이터를 처리하기 위해 구현하였다. PlayerAchievement는 유저-업적의 M:N 관계를 해소하기 위해 구현하였다.
 
-   ┃ ┣ 📜views.py
+   ┃ ┣ 📜**views.py**
 
-- accounts 앱과 마찬가지로 APIVEW를 상속받은 클래스 기반 뷰를 구현하였다. 
-- class MatchRecordList
-  - MatchRecordList는 LimitOffsetPagination을 추가로 상속받아 Pagination 기능을 구현하였다. 이 기능은 각 클래스의 get 메서드에서 활용하였다.
-  - post 메서드는 클라이언트로부터 전송된 json파일과 csv파일을 처리하고 DB와 storage에 저장하는 로직이 구현되었다. json파일은 애플워치가 수집한 경기기록 데이터가 담겨있으며 csv파일은 한 경기에서 발생한 애플워치의 x,y,z축 가속도 시계열 데이터와 각속도 시계열 데이터가 저장되었다. 경기기록과 분석정보를 DB에 저장하면 유저의 업적 별 누적치를 업데이트하고 달성여부를 체크하는 로직이 구현되었다.
-- class PlayerMotionList
-  - LimitOffsetPagination을 추가로 상속받아 Pagination 기능을 구현하였다. 이 기능은 각 클래스의 get 메서드에서 활용하였다.
-  - post 메서드는 클라이언트로부터 전송된 mp4파일과 csv파일을 처리하고 DB&storage에 저장하는 로직이 구현되었다. Mp4파일은 iOS에서 촬영한 사용자의 하이클리어 스윙(1회) 영상 데이터를 뜻하며, csv파일은 사용자의 하이클리어 스윙(1회)에 대한 x,y,z축 가속도, 각속도 시계열 데이터를 뜻한다. movenet.py를 통해 mp4파일을 분석하고, analysis.py를 통해 csv파일을 분석하여 피드백 데이터를 DB에 저장한다.
+  - accounts 앱과 마찬가지로 APIVEW를 상속받은 클래스 기반 뷰를 구현하였다. 
+  - class MatchRecordList
+    - MatchRecordList는 LimitOffsetPagination을 추가로 상속받아 Pagination 기능을 구현하였다. 이 기능은 각 클래스의 get 메서드에서 활용하였다.
+    - post 메서드는 클라이언트로부터 전송된 json파일과 csv파일을 처리하고 DB와 storage에 저장하는 로직이 구현되었다. json파일은 애플워치가 수집한 경기기록 데이터가 담겨있으며 csv파일은 한 경기에서 발생한 애플워치의 x,y,z축 가속도 시계열 데이터와 각속도 시계열 데이터가 저장되었다. 경기기록과 분석정보를 DB에 저장하면 유저의 업적 별 누적치를 업데이트하고 달성여부를 체크하는 로직이 구현되었다.
+  - class PlayerMotionList
+    - LimitOffsetPagination을 추가로 상속받아 Pagination 기능을 구현하였다. 이 기능은 각 클래스의 get 메서드에서 활용하였다.
+    - post 메서드는 클라이언트로부터 전송된 mp4파일과 csv파일을 처리하고 DB&storage에 저장하는 로직이 구현되었다. Mp4파일은 iOS에서 촬영한 사용자의 하이클리어 스윙(1회) 영상 데이터를 뜻하며, csv파일은 사용자의 하이클리어 스윙(1회)에 대한 x,y,z축 가속도, 각속도 시계열 데이터를 뜻한다. movenet.py를 통해 mp4파일을 분석하고, analysis.py를 통해 csv파일을 분석하여 피드백 데이터를 DB에 저장한다.
 
 
 
@@ -77,7 +77,7 @@
 ![erd](https://github.com/straipe/cokcok/assets/43769778/0c8af767-3a77-43f3-8462-4c5a9983d05e)
 
 
-- Entity
+- **Entity**
   - Player: 각 유저의 회원정보를 저장하기 위한 엔티티
   - Motion: 유저 별 스윙 분석 데이터를 저장하기 위한 엔티티
   - Match_Record: 유저 별 경기 기록 데이터를 저장하기 위한 엔티티
@@ -102,7 +102,7 @@
 
 
 
-- Model Architecture
+- **Model Architecture**
 
 ![MoveNet architecture](https://1.bp.blogspot.com/-GvLNT9SFGJ8/YJ7qxvGTsDI/AAAAAAAAENE/J-nRn34k48UbDpMhPvjX1RG66WX1IsppwCLcBGAsYHQ/s0/MoveNetArchitecture%2B%25281%2529.png)
 
@@ -117,11 +117,11 @@
 
 
 
-- Model Version
+- **Model Version**
 
   MoveNet은 Lightning과 Thunder 두 가지 버전이 존재한다. Lightning은 모바일 환경에서도 real-time 연산이 가능하고 초당 50프레임 연산이 가능하다. 반면 Thunder은 크고 느리지만 높은 정확도를 보인다. 
 
-- Use of MoveNet
+- **Use of MoveNet**
 
   이 프로젝트에서 MoveNet을 활용한 스윙 자세 분석 알고리즘을 소개한다.
 
