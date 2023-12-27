@@ -66,9 +66,7 @@
   - LimitOffsetPagination을 추가로 상속받아 Pagination 기능을 구현하였다. 이 기능은 각 클래스의 get 메서드에서 활용하였다.
   - post 메서드는 클라이언트로부터 전송된 mp4파일과 csv파일을 처리하고 DB&storage에 저장하는 로직이 구현되었다. Mp4파일은 iOS에서 촬영한 사용자의 하이클리어 스윙(1회) 영상 데이터를 뜻하며, csv파일은 사용자의 하이클리어 스윙(1회)에 대한 x,y,z축 가속도, 각속도 시계열 데이터를 뜻한다. movenet.py를 통해 mp4파일을 분석하고, analysis.py를 통해 csv파일을 분석하여 피드백 데이터를 DB에 저장한다.
 
-</br>
-</br>
-</br>
+
 
 # MySQL
 
@@ -87,9 +85,7 @@
   - Player_Achievement: 유저와 업적 간의 M:N 관계를 해소하기 위한 엔티티
   - Swing_Score: 경기 당 분류된 스윙들의 점수를 저장하기 위한 엔티티
 
-</br>
-</br>
-</br>
+
 
 # Amazon Web Services
 
@@ -100,9 +96,7 @@
 - **EC2 instance**: AMI는 Ubuntu를 지정하였으며 movenet을 활용하기 위해 메모리가 비교적 크고 GPU가
   탑재된 instance를 활용할 계획이다.
 
-</br>
-</br>
-</br>
+
 
 # MoveNet
 
