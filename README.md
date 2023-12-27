@@ -115,6 +115,7 @@
 3. **Person keypoint heatmap**: 사람 인스턴스와는 독립적으로 17개 관절 좌표를 예측한다.
 4. **2D per-keypoint offset field**: 특징맵의 pixel에서 각 관절의 sub-pixel 위치에 대한 local offset을 예측한다.
 
+이를 종합하여 보다 정확한 관절의 위치를 예측한다.
 
 
 - **Model Version**
